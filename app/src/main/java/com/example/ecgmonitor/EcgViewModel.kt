@@ -48,18 +48,19 @@ data class TelemetrySample(
 )
 
 class EcgViewModel(
-    private val context: Context,
+    context: Context,
     private val ble: BleEcgClient,
     private val dao: EcgSessionDao
 ) : ViewModel() {
 
+    private val appContext = context.applicationContext
     private val rawSamples = mutableListOf<Float>()
     private val espFilteredSamples = mutableListOf<Float>()
     private val androidFilteredSamples = mutableListOf<Float>()
     private val telemetryHistory = mutableListOf<TelemetrySample>()
     private val androidFilter = RealtimeEcgFilter()
     private val panTompkinsDetector = PanTompkinsDetector()
-    private val classifier by lazy { TfliteEcgClassifier(context) }
+    private val classifier by lazy { TfliteEcgClassifier(appContext) }
 
     private var measurementStartedAt: Long? = null
     private var latestEspBpm: Float? = null
@@ -219,11 +220,11 @@ class EcgViewModel(
             measurementStartedAt = System.currentTimeMillis()
         }
 
-        rawSamples += raw
+        rawSamples.add(raw)
         val androidCleaned = androidFilter.process(raw)
-        androidFilteredSamples += androidCleaned
+        androidFilteredSamples.add(androidCleaned)
         val chosenFiltered = espFiltered ?: androidCleaned
-        espFilteredSamples += chosenFiltered
+        espFilteredSamples.add(chosenFiltered)
 
         _sampleCount.value = espFilteredSamples.size
 
@@ -474,17 +475,18 @@ class EcgViewModel(
             ppgBpm = _ppgBpm.value
         )
 
-        val shortValues = copy.map {
-            it.coerceIn(Short.MIN_VALUE.toFloat(), Short.MAX_VALUE.toFloat()).toInt().toShort()
-        }
-
         val aiSourceLabel = if (isDeviceAi) "Android On-Device [${_selectedModel.value.displayName}]" else "ESP32"
 
         viewModelScope.launch {
+            val sessionSamples = synchronized(espFilteredSamples) { espFilteredSamples.toList() }
+            val shortValues = sessionSamples.map {
+                it.coerceIn(Short.MIN_VALUE.toFloat(), Short.MAX_VALUE.toFloat()).toInt().toShort()
+            }
+
             dao.insert(
                 EcgSession(
                     startedAt = measurementStartedAt ?: System.currentTimeMillis(),
-                    durationSeconds = copy.size / 125,
+                    durationSeconds = sessionSamples.size / 125,
                     samples = toBytes(shortValues),
                     heartRateBpm = result.bpm,
                     note = "AI ($aiSourceLabel): ${effectiveClassName ?: "N/A"} | SpO2: ${_spo2.value ?: "--"}%"
@@ -492,9 +494,9 @@ class EcgViewModel(
             )
 
             // Reset buffers
-            rawSamples.clear()
-            espFilteredSamples.clear()
-            androidFilteredSamples.clear()
+            synchronized(rawSamples) { rawSamples.clear() }
+            synchronized(espFilteredSamples) { espFilteredSamples.clear() }
+            synchronized(androidFilteredSamples) { androidFilteredSamples.clear() }
             synchronized(telemetryHistory) { telemetryHistory.clear() }
             androidFilter.reset()
             panTompkinsDetector.reset()
