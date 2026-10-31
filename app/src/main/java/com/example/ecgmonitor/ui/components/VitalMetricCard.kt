@@ -23,7 +23,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
@@ -240,6 +242,43 @@ fun HeartRateMetricItem(
                     )
                 }
 
+                // Mini Dynamic ECG Sparkline
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(18.dp)
+                ) {
+                    val w = size.width
+                    val h = size.height
+                    val midY = h * 0.65f
+                    val path = Path().apply {
+                        moveTo(0f, midY)
+                        lineTo(w * 0.18f, midY)
+                        // P Wave
+                        quadraticBezierTo(w * 0.24f, midY - h * 0.25f, w * 0.30f, midY)
+                        lineTo(w * 0.40f, midY)
+                        // Q Wave
+                        lineTo(w * 0.44f, midY + h * 0.18f)
+                        // R Peak (elevates when isPeak is true)
+                        lineTo(w * 0.50f, if (isPeak) h * 0.05f else h * 0.20f)
+                        // S Wave
+                        lineTo(w * 0.56f, midY + h * 0.25f)
+                        lineTo(w * 0.62f, midY)
+                        // T Wave
+                        quadraticBezierTo(w * 0.72f, midY - h * 0.35f, w * 0.82f, midY)
+                        lineTo(w, midY)
+                    }
+                    drawPath(
+                        path = path,
+                        color = EcgTheme.colors.peakMarker.copy(alpha = if (bpm != null) 0.7f else 0.25f),
+                        style = Stroke(
+                            width = 1.6.dp.toPx(),
+                            cap = StrokeCap.Round,
+                            join = StrokeJoin.Round
+                        )
+                    )
+                }
+
                 // Clinical Status Pill
                 Surface(
                     shape = RoundedCornerShape(6.dp),
@@ -426,6 +465,46 @@ fun PpgPulseMetricItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(bottom = 3.dp)
+                )
+            }
+
+            // Mini Optical PPG Pulse Waveform Sparkline
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(18.dp)
+            ) {
+                val w = size.width
+                val h = size.height
+                val baseY = h * 0.78f
+                val path = Path().apply {
+                    moveTo(0f, baseY)
+                    for (i in 0..1) {
+                        val startX = i * (w / 2f)
+                        val span = w / 2f
+                        // Systolic steep upstroke
+                        cubicTo(
+                            startX + span * 0.18f, h * 0.10f,
+                            startX + span * 0.28f, h * 0.08f,
+                            startX + span * 0.38f, h * 0.44f
+                        )
+                        // Dicrotic notch and diastolic decay
+                        cubicTo(
+                            startX + span * 0.48f, h * 0.58f,
+                            startX + span * 0.58f, h * 0.42f,
+                            startX + span * 0.72f, h * 0.65f
+                        )
+                        lineTo(startX + span, baseY)
+                    }
+                }
+                drawPath(
+                    path = path,
+                    color = accentColor.copy(alpha = if (ppgBpm != null) 0.7f else 0.25f),
+                    style = Stroke(
+                        width = 1.6.dp.toPx(),
+                        cap = StrokeCap.Round,
+                        join = StrokeJoin.Round
+                    )
                 )
             }
 

@@ -18,7 +18,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Settings
@@ -36,7 +38,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.haptic.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -138,6 +142,18 @@ private fun EcgApp(vm: EcgViewModel, scan: () -> Unit) {
     var showConnectSheet by rememberSaveable { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val haptic = LocalHapticFeedback.current
+
+    // Subtle tactile haptic pulse on R-Peak detection
+    LaunchedEffect(isPeak) {
+        if (isPeak) {
+            try {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            } catch (_: Exception) {
+                // Ignore gracefully on devices without tactile vibrator
+            }
+        }
+    }
 
     // State for SAF CSV Export
     var pendingExportSession by remember { mutableStateOf<EcgSession?>(null) }
@@ -256,6 +272,19 @@ private fun EcgApp(vm: EcgViewModel, scan: () -> Unit) {
                         }
                     },
                     actions = {
+                        // Quick Light/Dark Mode Toggle with Tactile Response
+                        IconButton(
+                            onClick = { dark = !dark },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (dark) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                contentDescription = if (dark) "Switch to Light Mode" else "Switch to Dark Mode",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
                         // Quick Demo Toggle Chip
                         FilterChip(
                             selected = isDemoMode,
