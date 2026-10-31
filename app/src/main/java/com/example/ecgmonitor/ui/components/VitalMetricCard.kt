@@ -2,6 +2,7 @@ package com.example.ecgmonitor.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,13 +65,16 @@ fun VitalSignsOverview(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Header: Title & Telemetry Hardware Badges
+            // Header: Title & Telemetry Hardware Label (Clean One-Line)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Box(
                         modifier = Modifier
                             .size(8.dp)
@@ -82,29 +86,26 @@ fun VitalSignsOverview(
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
-                        letterSpacing = 1.sp
+                        letterSpacing = 0.8.sp
                     )
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest
-                ) {
-                    Text(
-                        text = "AD8232 • MAX30102",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                    )
-                }
+                Text(
+                    text = "AD8232 • MAX30102",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
 
-            // 3 High-Tech Metric Cards Row
+            // 3 High-Tech Metric Cards Row (Guaranteed Equal Size & Height)
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // 1. ECG Heart Rate with Ripple Aura
                 val hrStatus = when {
@@ -119,7 +120,9 @@ fun VitalSignsOverview(
                     bpm = bpm,
                     statusText = hrStatus,
                     isPeak = isPeak,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
                 )
 
                 // 2. Blood Oxygen SpO2 with Radial Arc Gauge
@@ -142,7 +145,9 @@ fun VitalSignsOverview(
                     spo2 = spo2,
                     statusText = spo2Status,
                     accentColor = spo2Color,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
                 )
 
                 // 3. PPG Optical Pulse BPM
@@ -156,7 +161,9 @@ fun VitalSignsOverview(
                     ppgBpm = ppgBpm,
                     statusText = ppgStatus,
                     accentColor = EcgTheme.colors.ppgBpmColor,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
                 )
             }
         }
@@ -196,11 +203,14 @@ fun HeartRateMetricItem(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .background(peakMarkerColor.copy(alpha = auraAlpha))
                 .padding(12.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
                 // Header Row
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -234,7 +244,7 @@ fun HeartRateMetricItem(
                         fontWeight = FontWeight.Bold,
                         color = peakMarkerColor,
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 24.sp
+                        fontSize = 22.sp
                     )
                     Text(
                         text = "BPM",
@@ -323,8 +333,10 @@ fun Spo2MetricItem(
         color = MaterialTheme.colorScheme.surfaceContainerLowest
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Header Row
             Row(
@@ -345,49 +357,61 @@ fun Spo2MetricItem(
                 )
             }
 
-            // Value Display with Mini Arc Progress
+            // Value Display (Monospaced matching Heart Rate & PPG)
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                // Mini Radial Gauge
-                Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val strokeWidth = 3.dp.toPx()
-                        // Background track arc (240 degrees)
-                        drawArc(
-                            color = accentColor.copy(alpha = 0.18f),
-                            startAngle = 150f,
-                            sweepAngle = 240f,
-                            useCenter = false,
-                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                        )
-                        // Active progress arc
-                        drawArc(
-                            color = accentColor,
-                            startAngle = 150f,
-                            sweepAngle = 240f * animatedProgress,
-                            useCenter = false,
-                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                        )
-                    }
-                }
+                Text(
+                    text = spo2?.let { String.format(Locale.US, "%.1f", it) } ?: "--",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = accentColor,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 22.sp
+                )
+                Text(
+                    text = "%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(bottom = 3.dp)
+                )
+            }
 
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = spo2?.let { String.format(Locale.US, "%.1f", it) } ?: "--",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
+            // Mini Dynamic Oxygen Saturation Level Sparkline
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(18.dp)
+            ) {
+                val w = size.width
+                val h = size.height
+                val progress = ((spo2 ?: 0f) / 100f).coerceIn(0f, 1f)
+
+                // Background track line
+                drawLine(
+                    color = accentColor.copy(alpha = 0.20f),
+                    start = Offset(0f, h * 0.5f),
+                    end = Offset(w, h * 0.5f),
+                    strokeWidth = 2.5.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+
+                // Active fill line with end glowing bead
+                if (progress > 0f) {
+                    val fillWidth = w * progress
+                    drawLine(
                         color = accentColor,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 20.sp
+                        start = Offset(0f, h * 0.5f),
+                        end = Offset(fillWidth, h * 0.5f),
+                        strokeWidth = 2.5.dp.toPx(),
+                        cap = StrokeCap.Round
                     )
-                    Text(
-                        text = "%",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(bottom = 2.dp, start = 2.dp)
+                    drawCircle(
+                        color = accentColor,
+                        radius = 3.5.dp.toPx(),
+                        center = Offset(fillWidth, h * 0.5f)
                     )
                 }
             }
@@ -426,8 +450,10 @@ fun PpgPulseMetricItem(
         color = MaterialTheme.colorScheme.surfaceContainerLowest
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Header Row
             Row(
@@ -460,7 +486,7 @@ fun PpgPulseMetricItem(
                     fontWeight = FontWeight.Bold,
                     color = accentColor,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 24.sp
+                    fontSize = 22.sp
                 )
                 Text(
                     text = "BPM",
