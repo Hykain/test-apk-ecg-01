@@ -134,7 +134,8 @@ fun BleDeviceSheet(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
                     ),
-                    shape = RoundedCornerShape(20.dp)
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                 ) {
                     Column(
                         modifier = Modifier
@@ -143,9 +144,9 @@ fun BleDeviceSheet(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        // High-tech 360° animated radar sweep canvas
+                        // High-tech 360° animated radar sweep canvas with Sonar pulse
                         BleRadarScannerCanvas(
-                            modifier = Modifier.size(130.dp),
+                            modifier = Modifier.size(135.dp),
                             color = MaterialTheme.colorScheme.primary
                         )
 
@@ -186,8 +187,11 @@ fun BleDeviceSheet(
                                 else if (dev.isRecommended) MaterialTheme.colorScheme.surfaceContainerLowest
                                 else MaterialTheme.colorScheme.surfaceContainer
                             ),
-                            shape = RoundedCornerShape(18.dp),
-                            border = if (dev.isRecommended) BorderStroke(1.2.dp, MaterialTheme.colorScheme.primary) else null
+                            shape = RoundedCornerShape(20.dp),
+                            border = if (dev.isRecommended)
+                                BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+                            else
+                                BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                         ) {
                             Row(
                                 modifier = Modifier
@@ -313,13 +317,32 @@ fun BleRadarScannerCanvas(
         label = "radarAngle"
     )
 
+    // Pulsing sonar expanding wave
+    val sonarProgress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "sonarProgress"
+    )
+
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
         val center = Offset(w / 2f, h / 2f)
         val radius = w / 2f
 
-        // 1. Concentric Range Circles (25%, 50%, 75%, 100%)
+        // 1. Sonar expanding pulse wave
+        drawCircle(
+            color = color.copy(alpha = (1f - sonarProgress) * 0.45f),
+            radius = radius * sonarProgress,
+            center = center,
+            style = Stroke(width = 2.dp.toPx())
+        )
+
+        // 2. Concentric Range Circles (25%, 50%, 75%, 100%)
         listOf(0.25f, 0.50f, 0.75f, 1.0f).forEach { fraction ->
             drawCircle(
                 color = color.copy(alpha = 0.20f),
@@ -329,7 +352,7 @@ fun BleRadarScannerCanvas(
             )
         }
 
-        // 2. Crosshair Grid Lines
+        // 3. Crosshair Grid Lines
         drawLine(
             color = color.copy(alpha = 0.25f),
             start = Offset(center.x, 0f),
@@ -343,7 +366,7 @@ fun BleRadarScannerCanvas(
             strokeWidth = 1.dp.toPx()
         )
 
-        // 3. Sweeping Sector Wave (Arc with fading tail)
+        // 4. Sweeping Sector Wave (Arc with fading tail)
         drawArc(
             brush = Brush.sweepGradient(
                 colors = listOf(Color.Transparent, color.copy(alpha = 0.35f)),
@@ -356,7 +379,7 @@ fun BleRadarScannerCanvas(
             size = Size(w, h)
         )
 
-        // 4. Center Glowing Radar Pulse Dot
+        // 5. Center Glowing Radar Pulse Dot
         drawCircle(
             color = color,
             radius = 4.dp.toPx(),
