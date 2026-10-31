@@ -1,8 +1,13 @@
 package com.example.ecgmonitor.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -13,10 +18,14 @@ import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,6 +33,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
@@ -37,8 +47,10 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sqrt
 
 /**
  * Material 3 7-Day Heart Rate Trends & Session History Screen.
@@ -67,6 +79,30 @@ fun TrendsScreen(
     val avgBpm = if (recorded.isNotEmpty()) recorded.average().toInt() else null
     val minBpm = if (recorded.isNotEmpty()) recorded.minOrNull()?.toInt() else null
     val maxBpm = if (recorded.isNotEmpty()) recorded.maxOrNull()?.toInt() else null
+
+    var selectedPointIndex by remember { mutableStateOf<Int?>(null) }
+
+    // Heart Rate Variability (HRV / SDNN) Estimation from recorded sessions
+    val bpmList = sessions.mapNotNull { it.heartRateBpm }.filter { it in 40..200 }
+    val estimatedSdnn = if (bpmList.size >= 2) {
+        val rrList = bpmList.map { 60000.0 / it }
+        val avgRr = rrList.average()
+        val variance = rrList.map { (it - avgRr) * (it - avgRr) }.average()
+        sqrt(variance).toInt().coerceIn(15, 120)
+    } else null
+
+    val hrvStatus = when {
+        estimatedSdnn == null -> if (english) "Need >= 2 sessions" else "Cần >= 2 phiên đo"
+        estimatedSdnn >= 50 -> if (english) "Optimal Recovery" else "Phục hồi tối ưu"
+        estimatedSdnn >= 30 -> if (english) "Moderate Balance" else "Cân bằng"
+        else -> if (english) "Elevated Cardiac Strain" else "Căng thẳng tim mạch"
+    }
+    val hrvColor = when {
+        estimatedSdnn == null -> MaterialTheme.colorScheme.onSurfaceVariant
+        estimatedSdnn >= 50 -> EcgTheme.colors.rhythmNormal
+        estimatedSdnn >= 30 -> EcgTheme.colors.androidFilteredChannel
+        else -> EcgTheme.colors.rhythmPvc
+    }
 
     val comment = when {
         recorded.isEmpty() -> if (english) {
@@ -193,6 +229,7 @@ fun TrendsScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Header Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -224,15 +261,228 @@ fun TrendsScreen(
                     }
                 }
 
-                // 7-Day Bézier Chart Canvas
+                // Touch Scrubber Inspection Popover Banner
+                AnimatedVisibility(visible = selectedPointIndex != null) {
+                    val selIdx = selectedPointIndex ?: 0
+                    val selDate = dates.getOrNull(selIdx) ?: Date()
+                    val selBpm = values.getOrNull(selIdx)
+                    val dayFormat = remember { SimpleDateFormat("EEEE, dd/MM", if (english) Locale.US else Locale("vi")) }
+                    val formattedDay = dayFormat.format(selDate).replaceFirstChar { it.uppercase() }
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = formattedDay,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (selBpm != null) {
+                                        if (selBpm in 60f..100f) (if (english) "Optimal resting rhythm" else "Nhịp nghỉ chuẩn tối ưu")
+                                        else if (selBpm < 60f) (if (english) "Low resting rhythm" else "Nhịp nghỉ chậm")
+                                        else (if (english) "Elevated resting rhythm" else "Nhịp nghỉ nhanh")
+                                    } else {
+                                        if (english) "No measurement recorded" else "Chưa ghi nhận phiên đo"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text(
+                                    text = selBpm?.let { "${it.toInt()}" } ?: "--",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 20.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = " BPM",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(bottom = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 7-Day Bézier Chart Canvas with Touch Scrubber
                 SevenDayTrendCanvas(
                     dates = dates,
                     values = values,
                     dateLabels = dates.map { formatter.format(it) },
+                    selectedPointIndex = selectedPointIndex,
+                    onSelectIndex = { selectedPointIndex = it },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(180.dp)
                 )
+
+                // 7-Day Day-by-Day Interactive Strip
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val dayAbbrFormatter = remember { SimpleDateFormat("EEE", if (english) Locale.US else Locale("vi")) }
+                    val dayNumFormatter = remember { SimpleDateFormat("dd", Locale.getDefault()) }
+
+                    dates.forEachIndexed { idx, date ->
+                        val dayBpm = values.getOrNull(idx)
+                        val isSelected = selectedPointIndex == idx
+                        val statusColor = when {
+                            dayBpm == null -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                            dayBpm in 60f..100f -> EcgTheme.colors.rhythmNormal
+                            dayBpm < 60f -> EcgTheme.colors.rhythmSvc
+                            else -> EcgTheme.colors.rhythmPvc
+                        }
+
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    selectedPointIndex = if (selectedPointIndex == idx) null else idx
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLowest,
+                            border = if (isSelected) BorderStroke(1.2.dp, MaterialTheme.colorScheme.primary) else null
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 2.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Text(
+                                    text = dayAbbrFormatter.format(date).uppercase(),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = dayNumFormatter.format(date),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(statusColor, CircleShape)
+                                )
+                                Text(
+                                    text = dayBpm?.let { "${it.toInt()}" } ?: "--",
+                                    fontSize = 9.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (dayBpm != null) statusColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Autonomic Heart Rate Variability (HRV / SDNN) Estimation Card
+        Card(
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = hrvColor.copy(alpha = 0.15f),
+                        modifier = Modifier.size(42.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.MonitorHeart,
+                                contentDescription = null,
+                                tint = hrvColor,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Column {
+                        Text(
+                            text = if (english) "AUTONOMIC HRV BALANCE" else "BIẾN THIÊN NHỊP TIM (HRV)",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = hrvStatus,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = hrvColor
+                        )
+                        Text(
+                            text = if (english) "Estimated SDNN recovery index"
+                            else "Độ lệch chuẩn khoảng RR (Chỉ số phục hồi tim mạch)",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        Text(
+                            text = estimatedSdnn?.toString() ?: "--",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            color = hrvColor,
+                            fontSize = 22.sp
+                        )
+                        Text(
+                            text = " ms",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+                    }
+                }
             }
         }
 
@@ -420,13 +670,15 @@ fun WeeklyKpiTile(
 }
 
 /**
- * Interactive 7-Day Bézier Spline Chart Canvas.
+ * Interactive 7-Day Bézier Spline Chart Canvas with Touch Scrubber.
  */
 @Composable
 fun SevenDayTrendCanvas(
     dates: List<Date>,
     values: List<Float?>,
     dateLabels: List<String>,
+    selectedPointIndex: Int? = null,
+    onSelectIndex: ((Int?) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val textMeasurer = rememberTextMeasurer()
@@ -435,7 +687,81 @@ fun SevenDayTrendCanvas(
     val safeBandColor = EcgTheme.colors.rhythmNormal.copy(alpha = 0.08f)
     val safeLineColor = EcgTheme.colors.rhythmNormal.copy(alpha = 0.35f)
 
-    Canvas(modifier = modifier) {
+    Canvas(
+        modifier = modifier
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { offset ->
+                        val width = size.width
+                        val leftMargin = 32.dp.toPx()
+                        val rightMargin = 16.dp.toPx()
+                        val chartWidth = width - leftMargin - rightMargin
+                        val count = values.size
+                        if (count > 1 && onSelectIndex != null) {
+                            val touchX = offset.x
+                            var closestIdx = 0
+                            var minDiff = Float.MAX_VALUE
+                            for (i in 0 until count) {
+                                val x = leftMargin + (i.toFloat() / (count - 1)) * chartWidth
+                                val diff = abs(x - touchX)
+                                if (diff < minDiff) {
+                                    minDiff = diff
+                                    closestIdx = i
+                                }
+                            }
+                            onSelectIndex(if (selectedPointIndex == closestIdx) null else closestIdx)
+                        }
+                    }
+                )
+            }
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { offset ->
+                        val width = size.width
+                        val leftMargin = 32.dp.toPx()
+                        val rightMargin = 16.dp.toPx()
+                        val chartWidth = width - leftMargin - rightMargin
+                        val count = values.size
+                        if (count > 1 && onSelectIndex != null) {
+                            val touchX = offset.x
+                            var closestIdx = 0
+                            var minDiff = Float.MAX_VALUE
+                            for (i in 0 until count) {
+                                val x = leftMargin + (i.toFloat() / (count - 1)) * chartWidth
+                                val diff = abs(x - touchX)
+                                if (diff < minDiff) {
+                                    minDiff = diff
+                                    closestIdx = i
+                                }
+                            }
+                            onSelectIndex(closestIdx)
+                        }
+                    },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        val width = size.width
+                        val leftMargin = 32.dp.toPx()
+                        val rightMargin = 16.dp.toPx()
+                        val chartWidth = width - leftMargin - rightMargin
+                        val count = values.size
+                        if (count > 1 && onSelectIndex != null) {
+                            val touchX = change.position.x
+                            var closestIdx = 0
+                            var minDiff = Float.MAX_VALUE
+                            for (i in 0 until count) {
+                                val x = leftMargin + (i.toFloat() / (count - 1)) * chartWidth
+                                val diff = abs(x - touchX)
+                                if (diff < minDiff) {
+                                    minDiff = diff
+                                    closestIdx = i
+                                }
+                            }
+                            onSelectIndex(closestIdx)
+                        }
+                    }
+                )
+            }
+    ) {
         val width = size.width
         val height = size.height
 
@@ -512,13 +838,14 @@ fun SevenDayTrendCanvas(
 
             // Draw X-axis date labels
             val dateLabel = dateLabels.getOrElse(i) { "" }
+            val isSelectedDate = selectedPointIndex == i
             val labelLayout = textMeasurer.measure(
                 text = dateLabel,
                 style = TextStyle(
-                    fontSize = 9.sp,
+                    fontSize = if (isSelectedDate) 10.sp else 9.sp,
                     fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.Gray
+                    fontWeight = if (isSelectedDate) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelectedDate) primaryColor else Color.Gray
                 )
             )
             drawText(
@@ -576,18 +903,19 @@ fun SevenDayTrendCanvas(
             )
         }
 
-        // 4. Draw Circular Nodes & BPM Value Tags
-        validPoints.forEach { (_, pt) ->
+        // 4. Draw Circular Nodes
+        validPoints.forEach { (idx, pt) ->
+            val isSelected = selectedPointIndex == idx
             // Outer node glow
             drawCircle(
-                color = primaryColor.copy(alpha = 0.25f),
-                radius = 6.dp.toPx(),
+                color = primaryColor.copy(alpha = if (isSelected) 0.45f else 0.25f),
+                radius = if (isSelected) 9.dp.toPx() else 6.dp.toPx(),
                 center = pt
             )
             // Node border
             drawCircle(
                 color = primaryColor,
-                radius = 4.dp.toPx(),
+                radius = if (isSelected) 5.dp.toPx() else 4.dp.toPx(),
                 center = pt
             )
             // Node center white dot
@@ -596,6 +924,38 @@ fun SevenDayTrendCanvas(
                 radius = 2.dp.toPx(),
                 center = pt
             )
+        }
+
+        // 5. Vertical Touch Scrubber Guideline & Active Inspection Ring
+        if (selectedPointIndex != null && selectedPointIndex in 0 until count) {
+            val scrubX = leftMargin + (selectedPointIndex.toFloat() / (count - 1)) * chartWidth
+            drawLine(
+                color = primaryColor.copy(alpha = 0.65f),
+                start = Offset(scrubX, topMargin),
+                end = Offset(scrubX, height - bottomMargin),
+                strokeWidth = 1.2.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()), 0f)
+            )
+
+            values.getOrNull(selectedPointIndex)?.let { valBpm ->
+                val scrubY = bpmToY(valBpm)
+                // Concentric inspection target rings
+                drawCircle(
+                    color = primaryColor.copy(alpha = 0.25f),
+                    radius = 14.dp.toPx(),
+                    center = Offset(scrubX, scrubY)
+                )
+                drawCircle(
+                    color = primaryColor,
+                    radius = 6.dp.toPx(),
+                    center = Offset(scrubX, scrubY)
+                )
+                drawCircle(
+                    color = Color.White,
+                    radius = 3.dp.toPx(),
+                    center = Offset(scrubX, scrubY)
+                )
+            }
         }
     }
 }
