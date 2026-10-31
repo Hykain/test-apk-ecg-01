@@ -62,7 +62,6 @@ fun ChartsScreen(
     english: Boolean = false
 ) {
     var isStackedView by rememberSaveable { mutableStateOf(true) }
-    var selectedChannelFilter by rememberSaveable { mutableIntStateOf(0) } // 0: All, 1: Raw, 2: ESP32, 3: Android
     var paperSpeed by rememberSaveable { mutableStateOf("25 mm/s") }
     var voltageGain by rememberSaveable { mutableStateOf("10 mm/mV") }
 
@@ -281,69 +280,42 @@ fun ChartsScreen(
                 english = english
             )
         } else {
-            // Channel Filter Chips
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                val filterLabels = if (english) {
-                    listOf("All Channels", "CH 2: ESP32", "CH 1: Raw", "CH 3: Android")
-                } else {
-                    listOf("Tất cả 3 kênh", "CH 2: Lọc ESP32", "CH 1: Thô AD8232", "CH 3: Lọc Android")
-                }
-
-                filterLabels.forEachIndexed { idx, label ->
-                    FilterChip(
-                        selected = selectedChannelFilter == idx,
-                        onClick = { selectedChannelFilter = idx },
-                        label = { Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-            }
-
             // Channel 1: Raw ADC
-            if (selectedChannelFilter == 0 || selectedChannelFilter == 2) {
-                EcgChartCard(
-                    channelNumber = 1,
-                    title = if (english) "Raw Signal (AD8232 ADC)" else "Tín hiệu Thô (AD8232 ADC)",
-                    subtitle = if (english) "Direct ADC samples with 50Hz mains & baseline wander"
-                    else "Tín hiệu thô trực tiếp từ cảm biến AD8232 (bao gồm nhiễu 50Hz)",
-                    samples = raw,
-                    waveformColor = EcgTheme.colors.rawChannel,
-                    height = if (selectedChannelFilter != 0) 240.dp else 195.dp,
-                    english = english
-                )
-            }
+            EcgChartCard(
+                channelNumber = 1,
+                title = if (english) "Raw Signal (AD8232 ADC)" else "Tín hiệu Thô (AD8232 ADC)",
+                subtitle = if (english) "Direct ADC samples with 50Hz mains & baseline wander"
+                else "Tín hiệu thô trực tiếp từ cảm biến AD8232 (bao gồm nhiễu 50Hz)",
+                samples = raw,
+                waveformColor = EcgTheme.colors.rawChannel,
+                height = 200.dp,
+                english = english
+            )
 
             // Channel 2: Filtered on ESP32
-            if (selectedChannelFilter == 0 || selectedChannelFilter == 1) {
-                EcgChartCard(
-                    channelNumber = 2,
-                    title = if (english) "ESP32 DSP Filtered (Notch 50Hz)" else "Lọc trên chip ESP32 (Notch 50Hz)",
-                    subtitle = if (english) "Hardware DSP: IIR Notch 50Hz + baseline wander removal"
-                    else "Xử lý số tín hiệu trên vi điều khiển ESP32: Lọc Notch 50Hz + chống trôi nền",
-                    samples = espFiltered,
-                    waveformColor = EcgTheme.colors.espFilteredChannel,
-                    isPeak = assessment.bpm != null,
-                    height = if (selectedChannelFilter != 0) 240.dp else 195.dp,
-                    english = english
-                )
-            }
+            EcgChartCard(
+                channelNumber = 2,
+                title = if (english) "ESP32 DSP Filtered (Notch 50Hz)" else "Lọc trên chip ESP32 (Notch 50Hz)",
+                subtitle = if (english) "Hardware DSP: IIR Notch 50Hz + baseline wander removal"
+                else "Xử lý số tín hiệu trên vi điều khiển ESP32: Lọc Notch 50Hz + chống trôi nền",
+                samples = espFiltered,
+                waveformColor = EcgTheme.colors.espFilteredChannel,
+                isPeak = assessment.bpm != null,
+                height = 200.dp,
+                english = english
+            )
 
             // Channel 3: Filtered on Android Local DSP
-            if (selectedChannelFilter == 0 || selectedChannelFilter == 3) {
-                EcgChartCard(
-                    channelNumber = 3,
-                    title = if (english) "Android Local Filtered (DSP)" else "Lọc trên máy Android (Kiểm chứng)",
-                    subtitle = if (english) "Computed in Kotlin for realtime filter validation"
-                    else "Xử lý bằng bộ lọc RealtimeEcgFilter cục bộ để đối chiếu chất lượng",
-                    samples = androidFiltered,
-                    waveformColor = EcgTheme.colors.androidFilteredChannel,
-                    height = if (selectedChannelFilter != 0) 240.dp else 195.dp,
-                    english = english
-                )
-            }
+            EcgChartCard(
+                channelNumber = 3,
+                title = if (english) "Android Local Filtered (DSP)" else "Lọc trên máy Android (Kiểm chứng)",
+                subtitle = if (english) "Computed in Kotlin for realtime filter validation"
+                else "Xử lý bằng bộ lọc RealtimeEcgFilter cục bộ để đối chiếu chất lượng",
+                samples = androidFiltered,
+                waveformColor = EcgTheme.colors.androidFilteredChannel,
+                height = 200.dp,
+                english = english
+            )
         }
 
         // 5. Telemetry Snapshot Summary Card with Monospaced Numerals
