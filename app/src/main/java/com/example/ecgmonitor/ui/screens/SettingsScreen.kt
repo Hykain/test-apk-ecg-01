@@ -418,7 +418,7 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Khoa Điện tử 1 • Học viện Công nghệ Bưu chính Viễn thông (PTIT)",
+                    text = "Khoa Kỹ thuật Điện tử 1 • Học viện Công nghệ Bưu chính Viễn thông (PTIT)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp
