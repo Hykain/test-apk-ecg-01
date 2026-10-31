@@ -8,12 +8,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -27,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.example.ecgmonitor.BleDeviceOption
 import com.example.ecgmonitor.domain.EcgAssessment
 import com.example.ecgmonitor.ui.components.EcgChartCard
+import com.example.ecgmonitor.ui.components.Stacked3LeadChartCard
 import com.example.ecgmonitor.ui.theme.EcgTheme
 
 /**
@@ -57,6 +60,7 @@ fun ChartsScreen(
     modifier: Modifier = Modifier,
     english: Boolean = false
 ) {
+    var isStackedView by rememberSaveable { mutableStateOf(true) }
     var selectedChannelFilter by rememberSaveable { mutableIntStateOf(0) } // 0: All, 1: Raw, 2: ESP32, 3: Android
     var paperSpeed by rememberSaveable { mutableStateOf("25 mm/s") }
     var voltageGain by rememberSaveable { mutableStateOf("10 mm/mV") }
@@ -225,66 +229,116 @@ fun ChartsScreen(
             }
         }
 
-        // 3. Lead / Channel Filter Chips
+        // 3. View Mode Toggle (Stacked 3-Lead vs Separate Cards)
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val filterLabels = if (english) {
-                listOf("All Channels", "CH 2: ESP32", "CH 1: Raw", "CH 3: Android")
-            } else {
-                listOf("Tất cả 3 kênh", "CH 2: Lọc ESP32", "CH 1: Thô AD8232", "CH 3: Lọc Android")
+            FilterChip(
+                selected = isStackedView,
+                onClick = { isStackedView = true },
+                label = {
+                    Text(
+                        text = if (english) "Stacked 3-Lead Sync" else "Xếp tầng 3 Đạo trình",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                leadingIcon = {
+                    Icon(Icons.Default.ViewAgenda, contentDescription = null, modifier = Modifier.size(15.dp))
+                },
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            FilterChip(
+                selected = !isStackedView,
+                onClick = { isStackedView = false },
+                label = {
+                    Text(
+                        text = if (english) "Separate Cards" else "Từng Thẻ Riêng",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                leadingIcon = {
+                    Icon(Icons.Default.Dashboard, contentDescription = null, modifier = Modifier.size(15.dp))
+                },
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
+
+        // 4. Waveforms Display: Either Stacked 3-Lead Canvas or Filtered Individual Cards
+        if (isStackedView) {
+            Stacked3LeadChartCard(
+                raw = raw,
+                espFiltered = espFiltered,
+                androidFiltered = androidFiltered,
+                paperSpeed = paperSpeed,
+                voltageGain = voltageGain,
+                isPeak = assessment.bpm != null,
+                english = english
+            )
+        } else {
+            // Channel Filter Chips
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                val filterLabels = if (english) {
+                    listOf("All Channels", "CH 2: ESP32", "CH 1: Raw", "CH 3: Android")
+                } else {
+                    listOf("Tất cả 3 kênh", "CH 2: Lọc ESP32", "CH 1: Thô AD8232", "CH 3: Lọc Android")
+                }
+
+                filterLabels.forEachIndexed { idx, label ->
+                    FilterChip(
+                        selected = selectedChannelFilter == idx,
+                        onClick = { selectedChannelFilter = idx },
+                        label = { Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
             }
 
-            filterLabels.forEachIndexed { idx, label ->
-                FilterChip(
-                    selected = selectedChannelFilter == idx,
-                    onClick = { selectedChannelFilter = idx },
-                    label = { Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                    shape = RoundedCornerShape(12.dp)
+            // Channel 1: Raw ADC
+            if (selectedChannelFilter == 0 || selectedChannelFilter == 2) {
+                EcgChartCard(
+                    channelNumber = 1,
+                    title = if (english) "Raw Signal (AD8232 ADC)" else "Tín hiệu Thô (AD8232 ADC)",
+                    subtitle = if (english) "Direct ADC samples with 50Hz mains & baseline wander"
+                    else "Tín hiệu thô trực tiếp từ cảm biến AD8232 (bao gồm nhiễu 50Hz)",
+                    samples = raw,
+                    waveformColor = EcgTheme.colors.rawChannel,
+                    height = if (selectedChannelFilter != 0) 240.dp else 195.dp
                 )
             }
-        }
 
-        // 4. Waveforms Display according to Filter
-        // Channel 1: Raw ADC
-        if (selectedChannelFilter == 0 || selectedChannelFilter == 2) {
-            EcgChartCard(
-                channelNumber = 1,
-                title = if (english) "Raw Signal (AD8232 ADC)" else "Tín hiệu Thô (AD8232 ADC)",
-                subtitle = if (english) "Direct ADC samples with 50Hz mains & baseline wander"
-                else "Tín hiệu thô trực tiếp từ cảm biến AD8232 (bao gồm nhiễu 50Hz)",
-                samples = raw,
-                waveformColor = EcgTheme.colors.rawChannel,
-                height = if (selectedChannelFilter != 0) 240.dp else 195.dp
-            )
-        }
+            // Channel 2: Filtered on ESP32
+            if (selectedChannelFilter == 0 || selectedChannelFilter == 1) {
+                EcgChartCard(
+                    channelNumber = 2,
+                    title = if (english) "ESP32 DSP Filtered (Notch 50Hz)" else "Lọc trên chip ESP32 (Notch 50Hz)",
+                    subtitle = if (english) "Hardware DSP: IIR Notch 50Hz + baseline wander removal"
+                    else "Xử lý số tín hiệu trên vi điều khiển ESP32: Lọc Notch 50Hz + chống trôi nền",
+                    samples = espFiltered,
+                    waveformColor = EcgTheme.colors.espFilteredChannel,
+                    isPeak = assessment.bpm != null,
+                    height = if (selectedChannelFilter != 0) 240.dp else 195.dp
+                )
+            }
 
-        // Channel 2: Filtered on ESP32
-        if (selectedChannelFilter == 0 || selectedChannelFilter == 1) {
-            EcgChartCard(
-                channelNumber = 2,
-                title = if (english) "ESP32 DSP Filtered (Notch 50Hz)" else "Lọc trên chip ESP32 (Notch 50Hz)",
-                subtitle = if (english) "Hardware DSP: IIR Notch 50Hz + baseline wander removal"
-                else "Xử lý số tín hiệu trên vi điều khiển ESP32: Lọc Notch 50Hz + chống trôi nền",
-                samples = espFiltered,
-                waveformColor = EcgTheme.colors.espFilteredChannel,
-                isPeak = assessment.bpm != null,
-                height = if (selectedChannelFilter != 0) 240.dp else 195.dp
-            )
-        }
-
-        // Channel 3: Filtered on Android Local DSP
-        if (selectedChannelFilter == 0 || selectedChannelFilter == 3) {
-            EcgChartCard(
-                channelNumber = 3,
-                title = if (english) "Android Local Filtered (DSP)" else "Lọc trên máy Android (Kiểm chứng)",
-                subtitle = if (english) "Computed in Kotlin for realtime filter validation"
-                else "Xử lý bằng bộ lọc RealtimeEcgFilter cục bộ để đối chiếu chất lượng",
-                samples = androidFiltered,
-                waveformColor = EcgTheme.colors.androidFilteredChannel,
-                height = if (selectedChannelFilter != 0) 240.dp else 195.dp
-            )
+            // Channel 3: Filtered on Android Local DSP
+            if (selectedChannelFilter == 0 || selectedChannelFilter == 3) {
+                EcgChartCard(
+                    channelNumber = 3,
+                    title = if (english) "Android Local Filtered (DSP)" else "Lọc trên máy Android (Kiểm chứng)",
+                    subtitle = if (english) "Computed in Kotlin for realtime filter validation"
+                    else "Xử lý bằng bộ lọc RealtimeEcgFilter cục bộ để đối chiếu chất lượng",
+                    samples = androidFiltered,
+                    waveformColor = EcgTheme.colors.androidFilteredChannel,
+                    height = if (selectedChannelFilter != 0) 240.dp else 195.dp
+                )
+            }
         }
 
         // 5. Telemetry Snapshot Summary Card with Monospaced Numerals

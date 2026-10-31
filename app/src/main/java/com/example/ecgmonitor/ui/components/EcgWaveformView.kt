@@ -636,3 +636,430 @@ fun EcgChartCard(
         }
     }
 }
+
+/**
+ * Synchronized Multi-Lead Clinical Monitor Oscilloscope.
+ * Renders Lead I (Raw Sensor), Lead II (ESP32 DSP), and Lead III (Android Local DSP)
+ * stacked on a shared medical timebase with synchronized sweep scanline and calibration ticks.
+ */
+@Composable
+fun Stacked3LeadChartCard(
+    raw: List<Float>,
+    espFiltered: List<Float>,
+    androidFiltered: List<Float>,
+    modifier: Modifier = Modifier,
+    paperSpeed: String = "25 mm/s",
+    voltageGain: String = "10 mm/mV",
+    isPeak: Boolean = false,
+    english: Boolean = false
+) {
+    var selectedTheme by rememberSaveable { mutableStateOf(EcgDisplayTheme.SYSTEM) }
+    var showThemeMenu by remember { mutableStateOf(false) }
+
+    val systemColors = EcgTheme.colors
+    val activeColors = when (selectedTheme) {
+        EcgDisplayTheme.SYSTEM -> systemColors
+        EcgDisplayTheme.ICU_DARK -> DarkEcgColors
+        EcgDisplayTheme.CLINICAL_PAPER -> LightEcgColors
+        EcgDisplayTheme.AMBER_GLOW -> AmberEcgColors
+    }
+
+    // Sweep scanline animation
+    val infiniteTransition = rememberInfiniteTransition(label = "stackedSweep")
+    val sweepProgress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "sweepProgress"
+    )
+
+    val tipPulse by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 1.7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "tipPulse"
+    )
+
+    val textMeasurer = rememberTextMeasurer()
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Header: Title & Theme Switcher
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = "3-LEAD SYNC",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = if (english) "Synchronized Multi-Lead Monitor" else "Theo dõi Đồng bộ 3 Đạo trình",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Text(
+                        text = if (english) "Lead I (Raw) • Lead II (ESP32) • Lead III (Android)"
+                        else "Đạo trình I (Thô) • Đạo trình II (ESP32) • Đạo trình III (Android)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Theme Switcher Button
+                Box {
+                    Surface(
+                        onClick = { showThemeMenu = true },
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        modifier = Modifier.defaultMinSize(minHeight = 28.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Palette,
+                                contentDescription = "Theme",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = selectedTheme.displayNameVi,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = showThemeMenu,
+                        onDismissRequest = { showThemeMenu = false }
+                    ) {
+                        EcgDisplayTheme.values().forEach { themeOption ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        themeOption.displayNameVi,
+                                        fontWeight = if (themeOption == selectedTheme) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                onClick = {
+                                    selectedTheme = themeOption
+                                    showThemeMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Stacked 3-Lead Canvas
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(310.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(activeColors.canvasBackground)
+                    .border(1.dp, activeColors.gridMajor.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val w = size.width
+                    val h = size.height
+                    val slotHeight = h / 3f
+
+                    // 1. Draw unified medical grid across canvas
+                    drawMedicalGrid(
+                        width = w,
+                        height = h,
+                        majorColor = activeColors.gridMajor,
+                        minorColor = activeColors.gridMinor
+                    )
+
+                    // 2. Draw slots for each lead
+                    val leads = listOf(
+                        Triple("I: RAW ADC", raw, activeColors.rawChannel),
+                        Triple("II: ESP32 DSP", espFiltered, activeColors.espFilteredChannel),
+                        Triple("III: ANDROID DSP", androidFiltered, activeColors.androidFilteredChannel)
+                    )
+
+                    leads.forEachIndexed { idx, (label, samples, color) ->
+                        val slotTop = idx * slotHeight
+
+                        // Slot Divider line
+                        if (idx > 0) {
+                            drawLine(
+                                color = activeColors.gridMajor.copy(alpha = 0.5f),
+                                start = Offset(30.dp.toPx(), slotTop),
+                                end = Offset(w, slotTop),
+                                strokeWidth = 1.dp.toPx()
+                            )
+                        }
+
+                        // 1 mV reference pulse in slot
+                        drawCalibrationPulseInSlot(
+                            slotTop = slotTop,
+                            slotHeight = slotHeight,
+                            color = activeColors.gridMajor
+                        )
+
+                        // Channel label tag in gutter
+                        val textResult = textMeasurer.measure(
+                            text = label,
+                            style = TextStyle(
+                                fontSize = 8.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                color = color
+                            )
+                        )
+                        drawText(
+                            textLayoutResult = textResult,
+                            topLeft = Offset(4.dp.toPx(), slotTop + 6.dp.toPx())
+                        )
+
+                        // Draw Waveform Signal in Slot
+                        drawSlotEcgSignal(
+                            samples = samples,
+                            width = w,
+                            slotTop = slotTop,
+                            slotHeight = slotHeight,
+                            color = color,
+                            tipPulse = tipPulse
+                        )
+                    }
+
+                    // 3. Synchronized sweep scanline covering all 3 leads
+                    drawSweepScanline(
+                        width = w,
+                        height = h,
+                        progress = sweepProgress,
+                        beamColor = activeColors.espFilteredChannel
+                    )
+                }
+
+                // Lead II R-Peak indicator badge
+                if (isPeak) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .background(activeColors.peakMarker.copy(alpha = 0.2f), CircleShape)
+                            .border(1.dp, activeColors.peakMarker.copy(alpha = 0.5f), CircleShape)
+                            .padding(horizontal = 9.dp, vertical = 3.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .background(activeColors.peakMarker, CircleShape)
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = "R-PEAK",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = activeColors.peakMarker,
+                                letterSpacing = 0.8.sp
+                            )
+                        }
+                    }
+                }
+
+                // Medical telemetry spec banner at bottom
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    color = activeColors.canvasBackground.copy(alpha = 0.8f),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = "$paperSpeed • $voltageGain • 125 Hz",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = activeColors.gridMajor.copy(alpha = 0.9f),
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            // Lead legend row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LeadLegendItem(label = "Lead I: Raw", color = activeColors.rawChannel)
+                    LeadLegendItem(label = "Lead II: ESP32 DSP", color = activeColors.espFilteredChannel)
+                    LeadLegendItem(label = "Lead III: Android", color = activeColors.androidFilteredChannel)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Draws single-channel ECG signal within an allocated vertical slot.
+ */
+private fun DrawScope.drawSlotEcgSignal(
+    samples: List<Float>,
+    width: Float,
+    slotTop: Float,
+    slotHeight: Float,
+    color: Color,
+    tipPulse: Float
+) {
+    if (samples.size < 2) {
+        val midY = slotTop + (slotHeight * 0.5f)
+        drawLine(
+            color = color.copy(alpha = 0.35f),
+            start = Offset(54.dp.toPx(), midY),
+            end = Offset(width, midY),
+            strokeWidth = 1.2.dp.toPx()
+        )
+        return
+    }
+
+    val leftGutter = 54.dp.toPx()
+    val activeWidth = width - leftGutter
+    val lo = samples.minOrNull() ?: 0f
+    val hi = samples.maxOrNull() ?: 1f
+    val span = max(0.2f, hi - lo)
+
+    val count = samples.size
+    val path = Path()
+    var latestPoint: Offset? = null
+
+    for (i in 0 until count) {
+        val x = leftGutter + ((i.toFloat() / (count - 1)) * activeWidth)
+        val normalized = (samples[i] - lo) / span
+        val y = slotTop + slotHeight - (normalized * (slotHeight * 0.74f) + (slotHeight * 0.13f))
+
+        if (i == 0) {
+            path.moveTo(x, y)
+        } else {
+            path.lineTo(x, y)
+        }
+
+        if (i == count - 1) {
+            latestPoint = Offset(x, y)
+        }
+    }
+
+    // Outer glow
+    drawPath(
+        path = path,
+        color = color.copy(alpha = 0.22f),
+        style = Stroke(
+            width = 3.6.dp.toPx(),
+            cap = StrokeCap.Round,
+            join = StrokeJoin.Round
+        )
+    )
+
+    // Core stroke
+    drawPath(
+        path = path,
+        color = color,
+        style = Stroke(
+            width = 1.8.dp.toPx(),
+            cap = StrokeCap.Round,
+            join = StrokeJoin.Round
+        )
+    )
+
+    // Tip pulse
+    latestPoint?.let { pt ->
+        drawCircle(
+            color = color.copy(alpha = 0.35f),
+            radius = 4.5.dp.toPx() * tipPulse,
+            center = pt
+        )
+        drawCircle(
+            color = color,
+            radius = 2.dp.toPx(),
+            center = pt
+        )
+    }
+}
+
+/**
+ * Standard 1 mV calibration pulse placed inside a slot.
+ */
+private fun DrawScope.drawCalibrationPulseInSlot(
+    slotTop: Float,
+    slotHeight: Float,
+    color: Color
+) {
+    val baselineY = slotTop + slotHeight * 0.50f
+    val pulseHeight = slotHeight * 0.28f
+    val startX = 38.dp.toPx()
+    val pulseWidth = 6.dp.toPx()
+
+    val pulsePath = Path().apply {
+        moveTo(startX, baselineY)
+        lineTo(startX + 2.dp.toPx(), baselineY)
+        lineTo(startX + 2.dp.toPx(), baselineY - pulseHeight)
+        lineTo(startX + 2.dp.toPx() + pulseWidth, baselineY - pulseHeight)
+        lineTo(startX + 2.dp.toPx() + pulseWidth, baselineY)
+        lineTo(startX + 5.dp.toPx() + pulseWidth, baselineY)
+    }
+
+    drawPath(
+        path = pulsePath,
+        color = color.copy(alpha = 0.6f),
+        style = Stroke(width = 1.dp.toPx(), cap = StrokeCap.Square)
+    )
+}
+
+@Composable
+private fun LeadLegendItem(label: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(7.dp)
+                .background(color, CircleShape)
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = label,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
