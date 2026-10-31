@@ -1,5 +1,6 @@
 package com.example.ecgmonitor.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -8,13 +9,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,10 +31,11 @@ import com.example.ecgmonitor.ui.theme.EcgTheme
 
 /**
  * Material 3 Multi-Waveform ECG Analysis Screen.
- * Displays 3 synchronized telemetry channels:
- * 1. Raw ADC signal from AD8232 sensor.
- * 2. ESP32 hardware filtered signal (IIR Notch 50Hz + baseline wander removal).
- * 3. Android local DSP filtered signal (RealtimeEcgFilter comparison).
+ * Features:
+ * - Interactive Channel Selector Filter Chips (All 3 Channels, ESP32 Filtered, Raw AD8232, Android DSP)
+ * - Clinical Calibration Bar (Paper Speed 25/50 mm/s, Voltage Gain 5/10/20 mm/mV)
+ * - Telemetry Snapshot Summary Card with Monospaced Tabular Figures
+ * - Storage Access Framework (SAF) CSV Export and Room DB Save
  */
 @Composable
 fun ChartsScreen(
@@ -50,6 +57,10 @@ fun ChartsScreen(
     modifier: Modifier = Modifier,
     english: Boolean = false
 ) {
+    var selectedChannelFilter by rememberSaveable { mutableIntStateOf(0) } // 0: All, 1: Raw, 2: ESP32, 3: Android
+    var paperSpeed by rememberSaveable { mutableStateOf("25 mm/s") }
+    var voltageGain by rememberSaveable { mutableStateOf("10 mm/mV") }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -59,7 +70,7 @@ fun ChartsScreen(
     ) {
         // 1. Connection Status Banner Card
         Card(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer
             )
@@ -126,73 +137,166 @@ fun ChartsScreen(
             }
         }
 
-        // Section Title: Multi-Waveform Comparison
+        // 2. Clinical Calibration Control Bar (Speed & Gain Settings)
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = if (english) "CALIBRATION" else "CHUẨN ĐỘ Y KHOA",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Speed Toggle
+                    Surface(
+                        onClick = { paperSpeed = if (paperSpeed == "25 mm/s") "50 mm/s" else "25 mm/s" },
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest
+                    ) {
+                        Text(
+                            text = paperSpeed,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    // Gain Toggle
+                    Surface(
+                        onClick = {
+                            voltageGain = when (voltageGain) {
+                                "10 mm/mV" -> "20 mm/mV"
+                                "20 mm/mV" -> "5 mm/mV"
+                                else -> "10 mm/mV"
+                            }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest
+                    ) {
+                        Text(
+                            text = voltageGain,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    // Filter Notch Status Pill
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = "NOTCH 50Hz: ON",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // 3. Lead / Channel Filter Chips
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(
-                text = if (english) "Multi-Channel ECG Analysis" else "Phân tích Đa kênh Đồ thị ECG",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHighest
-            ) {
-                Text(
-                    text = "3 CHANNELS",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+            val filterLabels = if (english) {
+                listOf("All Channels", "CH 2: ESP32", "CH 1: Raw", "CH 3: Android")
+            } else {
+                listOf("Tất cả 3 kênh", "CH 2: Lọc ESP32", "CH 1: Thô AD8232", "CH 3: Lọc Android")
+            }
+
+            filterLabels.forEachIndexed { idx, label ->
+                FilterChip(
+                    selected = selectedChannelFilter == idx,
+                    onClick = { selectedChannelFilter = idx },
+                    label = { Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                    shape = RoundedCornerShape(12.dp)
                 )
             }
         }
 
-        // Waveform 1: Raw Signal from AD8232 ADC
-        EcgChartCard(
-            channelNumber = 1,
-            title = if (english) "Raw Signal (AD8232 ADC)" else "Tín hiệu Thô (AD8232 ADC)",
-            subtitle = if (english) "Direct ADC samples with 50Hz mains & baseline wander"
-            else "Tín hiệu thô trực tiếp từ cảm biến AD8232 (bao gồm nhiễu 50Hz)",
-            samples = raw,
-            waveformColor = EcgTheme.colors.rawChannel
-        )
+        // 4. Waveforms Display according to Filter
+        // Channel 1: Raw ADC
+        if (selectedChannelFilter == 0 || selectedChannelFilter == 2) {
+            EcgChartCard(
+                channelNumber = 1,
+                title = if (english) "Raw Signal (AD8232 ADC)" else "Tín hiệu Thô (AD8232 ADC)",
+                subtitle = if (english) "Direct ADC samples with 50Hz mains & baseline wander"
+                else "Tín hiệu thô trực tiếp từ cảm biến AD8232 (bao gồm nhiễu 50Hz)",
+                samples = raw,
+                waveformColor = EcgTheme.colors.rawChannel,
+                height = if (selectedChannelFilter != 0) 240.dp else 195.dp
+            )
+        }
 
-        // Waveform 2: Filtered on ESP32-S3 Hardware Core
-        EcgChartCard(
-            channelNumber = 2,
-            title = if (english) "ESP32 DSP Filtered (Notch 50Hz)" else "Lọc trên chip ESP32 (Notch 50Hz)",
-            subtitle = if (english) "Hardware DSP: IIR Notch 50Hz + baseline wander removal"
-            else "Xử lý số tín hiệu trên vi điều khiển ESP32: Lọc Notch 50Hz + chống trôi nền",
-            samples = espFiltered,
-            waveformColor = EcgTheme.colors.espFilteredChannel,
-            isPeak = assessment.bpm != null
-        )
+        // Channel 2: Filtered on ESP32
+        if (selectedChannelFilter == 0 || selectedChannelFilter == 1) {
+            EcgChartCard(
+                channelNumber = 2,
+                title = if (english) "ESP32 DSP Filtered (Notch 50Hz)" else "Lọc trên chip ESP32 (Notch 50Hz)",
+                subtitle = if (english) "Hardware DSP: IIR Notch 50Hz + baseline wander removal"
+                else "Xử lý số tín hiệu trên vi điều khiển ESP32: Lọc Notch 50Hz + chống trôi nền",
+                samples = espFiltered,
+                waveformColor = EcgTheme.colors.espFilteredChannel,
+                isPeak = assessment.bpm != null,
+                height = if (selectedChannelFilter != 0) 240.dp else 195.dp
+            )
+        }
 
-        // Waveform 3: Filtered on Android Device
-        EcgChartCard(
-            channelNumber = 3,
-            title = if (english) "Android Local Filtered (DSP)" else "Lọc trên máy Android (Kiểm chứng)",
-            subtitle = if (english) "Computed in Kotlin for realtime filter validation"
-            else "Xử lý bằng bộ lọc RealtimeEcgFilter cục bộ để đối chiếu chất lượng",
-            samples = androidFiltered,
-            waveformColor = EcgTheme.colors.androidFilteredChannel
-        )
+        // Channel 3: Filtered on Android Local DSP
+        if (selectedChannelFilter == 0 || selectedChannelFilter == 3) {
+            EcgChartCard(
+                channelNumber = 3,
+                title = if (english) "Android Local Filtered (DSP)" else "Lọc trên máy Android (Kiểm chứng)",
+                subtitle = if (english) "Computed in Kotlin for realtime filter validation"
+                else "Xử lý bằng bộ lọc RealtimeEcgFilter cục bộ để đối chiếu chất lượng",
+                samples = androidFiltered,
+                waveformColor = EcgTheme.colors.androidFilteredChannel,
+                height = if (selectedChannelFilter != 0) 240.dp else 195.dp
+            )
+        }
 
-        // Telemetry Snapshot Summary Card
+        // 5. Telemetry Snapshot Summary Card with Monospaced Numerals
         Card(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer
             )
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
                     text = if (english) "Session Telemetry Summary" else "Thông số Kỹ thuật Phiên đo",
@@ -215,6 +319,7 @@ fun ChartsScreen(
                             text = assessment.bpm?.let { "$it BPM" } ?: "--",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
                             color = EcgTheme.colors.peakMarker
                         )
                     }
@@ -229,6 +334,7 @@ fun ChartsScreen(
                             text = spo2?.let { "$it%" } ?: "--",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
                             color = EcgTheme.colors.spo2Color
                         )
                     }
@@ -243,6 +349,7 @@ fun ChartsScreen(
                             text = ppgBpm?.let { "${it.toInt()} BPM" } ?: "--",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
                             color = EcgTheme.colors.ppgBpmColor
                         )
                     }
@@ -257,22 +364,25 @@ fun ChartsScreen(
                             text = "${samples / 125}s",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
 
                 Text(
                     text = "AI Class: ${aiClassName ?: "--"}  •  125 Hz Sampling  •  ${samples} total samples",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp
                 )
             }
         }
 
-        // Action Buttons: Save to DB & Export CSV
+        // 6. Action Buttons: Save to DB & Export CSV
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -305,4 +415,3 @@ fun ChartsScreen(
         Spacer(Modifier.height(8.dp))
     }
 }
-

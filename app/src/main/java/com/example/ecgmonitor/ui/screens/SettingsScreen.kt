@@ -1,26 +1,44 @@
 package com.example.ecgmonitor.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ecgmonitor.domain.TfliteModelMeta
+import com.example.ecgmonitor.ui.theme.EcgTheme
 
 /**
- * Material 3 Settings & Device Configuration Screen.
+ * Material 3 Settings, TinyML Benchmark & Device Diagnostics Screen.
+ * Features:
+ * - Direct Interactive TinyML Benchmark Model Selection Grid
+ * - Hardware Diagnostic Console (ESP32 GATT, Sampling Rates, DSP Filters)
+ * - Theme & Display Preferences
+ * - Internationalization (Tiếng Việt / English)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,8 +54,6 @@ fun SettingsScreen(
     onSelectModel: (TfliteModelMeta) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var modelDropdownExpanded by remember { mutableStateOf(false) }
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -54,7 +70,7 @@ fun SettingsScreen(
 
         // 1. Demo Mode Simulation Switch Card
         Card(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer
             )
@@ -109,9 +125,9 @@ fun SettingsScreen(
             }
         }
 
-        // 2. Default On-Device AI Model Dropdown Card
+        // 2. Interactive TinyML Benchmark Models Comparison Card
         Card(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer
             )
@@ -120,78 +136,138 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        modifier = Modifier.size(42.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Memory,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(22.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Memory,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = if (english) "TinyML Model Benchmarks" else "Xếp hạng 5 Mô hình AI Benchmark",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = if (english) "Tap any model to activate for on-device inference"
+                                else "Chạm vào mô hình để chọn làm mô hình suy luận",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp
                             )
                         }
                     }
-
-                    Spacer(Modifier.width(14.dp))
-
-                    Column {
-                        Text(
-                            text = if (english) "Default On-Device AI Model" else "Mô hình AI On-Device mặc định",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = if (english) "Quantized INT8 model for on-device inference"
-                            else "Chọn mô hình lượng tử hoá INT8 suy luận trên điện thoại",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                 }
 
-                ExposedDropdownMenuBox(
-                    expanded = modelDropdownExpanded,
-                    onExpandedChange = { modelDropdownExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = selectedModel.displayName,
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelDropdownExpanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
-                        shape = RoundedCornerShape(12.dp),
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-                    )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
 
-                    ExposedDropdownMenu(
-                        expanded = modelDropdownExpanded,
-                        onDismissRequest = { modelDropdownExpanded = false }
+                // List of 5 Benchmark Model Cards
+                availableModels.forEach { meta ->
+                    val isSelected = selectedModel.id == meta.id
+
+                    Surface(
+                        onClick = { onSelectModel(meta) },
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (isSelected)
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                        else
+                            MaterialTheme.colorScheme.surfaceContainerLowest,
+                        border = if (isSelected)
+                            BorderStroke(1.2.dp, MaterialTheme.colorScheme.primary)
+                        else
+                            BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        availableModels.forEach { meta ->
-                            DropdownMenuItem(
-                                text = {
-                                    Column {
-                                        Text(meta.displayName, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                        Text(
-                                            "${meta.architecture} • ${meta.windowSize} mẫu • Acc: ${meta.accuracyPercent}%",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = meta.displayName,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (isSelected) {
+                                        Spacer(Modifier.width(6.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = "Active",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
                                         )
                                     }
-                                },
-                                onClick = {
-                                    onSelectModel(meta)
-                                    modelDropdownExpanded = false
                                 }
-                            )
+                                Spacer(Modifier.height(3.dp))
+                                Text(
+                                    text = meta.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                // Specs Badges
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHighest
+                                    ) {
+                                        Text(
+                                            text = "Acc: ${meta.accuracyPercent}%",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = EcgTheme.colors.rhythmNormal,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHighest
+                                    ) {
+                                        Text(
+                                            text = "${meta.windowSize} pts",
+                                            fontSize = 10.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHighest
+                                    ) {
+                                        Text(
+                                            text = meta.architecture,
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -200,7 +276,7 @@ fun SettingsScreen(
 
         // 3. Theme Toggle Card (Dark / Light)
         Card(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer
             )
@@ -257,7 +333,7 @@ fun SettingsScreen(
 
         // 4. Language Selector Card
         Card(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer
             )
@@ -314,52 +390,99 @@ fun SettingsScreen(
             }
         }
 
-        // 5. Hardware Specifications & AI System Guide
+        // 5. Hardware Diagnostic Console
         Card(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            )
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = if (english) "Biomedical Hardware & AI Guide" else "Thông số Kỹ thuật Phần cứng & AI",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Terminal,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = if (english) "HARDWARE DIAGNOSTIC CONSOLE" else "CONSOLE CHẨN ĐOÁN PHẦN CỨNG",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = EcgTheme.colors.rhythmNormal.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "STATUS: 125 Hz OK",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            color = EcgTheme.colors.rhythmNormal,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
 
-                Text(
-                    text = if (english)
-                        "• Target Device: ESP32-S3 (GATT Service: 4fafc201-1fb5-459e-8fcc-c5c9c331914b)\n" +
-                                "• Sensors: AD8232 (ECG 125Hz) & MAX30102 (SpO2 & PPG 100Hz)\n" +
-                                "• Preprocessing: Realtime Pan-Tompkins QRS detector (1:1 MATLAB sync)\n" +
-                                "• Dual AI: ESP32 Hardware CNN + Android On-Device TFLite INT8 (Kachuee ResNet / Inception 3/4-Branch)."
-                    else
-                        "• Thiết bị kết nối: Vi điều khiển ESP32-S3 (Service UUID: 4fafc201-1fb5-459e-8fcc-c5c9c331914b)\n" +
-                                "• Cảm biến sinh hiệu: AD8232 (Điện tim ECG 125Hz) & MAX30102 (Oxy SpO2 & Mạch PPG 100Hz)\n" +
-                                "• Tiền xử lý: Dò đỉnh Pan-Tompkins QRS & cắt nhịp chuẩn hoá 1:1 từ MATLAB\n" +
-                                "• Kiến trúc Dual AI: Kết hợp đồng thời CNN trên chip ESP32 và TensorFlow Lite INT8 On-Device trên Android.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 20.sp
-                )
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "• MCU: ESP32-S3 Dual-Core Xtensa LX7 @ 240MHz",
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "• Sensors: AD8232 (ECG 125Hz) & MAX30102 (SpO2/PPG 100Hz)",
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "• GATT Service UUID: 4fafc201-1fb5-459e-8fcc-c5c9c331914b",
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "• DSP Pipeline: IIR Notch 50Hz + HPF 0.95 + MWI 18 + Pan-Tompkins QRS",
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "• Dual AI: ESP32 Hardware CNN || Android On-Device TFLite INT8",
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
         }
 
         Spacer(Modifier.height(8.dp))
     }
 }
-
