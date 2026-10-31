@@ -185,16 +185,18 @@ fun HeartRateMetricItem(
         label = "auraAlpha"
     )
 
+    val peakMarkerColor = EcgTheme.colors.peakMarker
+
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        border = if (isPeak) androidx.compose.foundation.BorderStroke(1.2.dp, EcgTheme.colors.peakMarker.copy(alpha = 0.6f)) else null
+        border = if (isPeak) androidx.compose.foundation.BorderStroke(1.2.dp, peakMarkerColor.copy(alpha = 0.6f)) else null
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(EcgTheme.colors.peakMarker.copy(alpha = auraAlpha))
+                .background(peakMarkerColor.copy(alpha = auraAlpha))
                 .padding(12.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -213,7 +215,7 @@ fun HeartRateMetricItem(
                     Icon(
                         imageVector = Icons.Default.Favorite,
                         contentDescription = null,
-                        tint = EcgTheme.colors.peakMarker,
+                        tint = peakMarkerColor,
                         modifier = Modifier
                             .size(15.dp)
                             .scale(heartScale)
@@ -229,7 +231,7 @@ fun HeartRateMetricItem(
                         text = bpm?.toInt()?.toString() ?: "--",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = EcgTheme.colors.peakMarker,
+                        color = peakMarkerColor,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 24.sp
                     )
@@ -270,7 +272,7 @@ fun HeartRateMetricItem(
                     }
                     drawPath(
                         path = path,
-                        color = EcgTheme.colors.peakMarker.copy(alpha = if (bpm != null) 0.7f else 0.25f),
+                        color = peakMarkerColor.copy(alpha = if (bpm != null) 0.7f else 0.25f),
                         style = Stroke(
                             width = 1.6.dp.toPx(),
                             cap = StrokeCap.Round,
@@ -282,13 +284,13 @@ fun HeartRateMetricItem(
                 // Clinical Status Pill
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = EcgTheme.colors.peakMarker.copy(alpha = 0.12f)
+                    color = peakMarkerColor.copy(alpha = 0.12f)
                 ) {
                     Text(
                         text = statusText,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        color = EcgTheme.colors.peakMarker,
+                        color = peakMarkerColor,
                         modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                     )
                 }
