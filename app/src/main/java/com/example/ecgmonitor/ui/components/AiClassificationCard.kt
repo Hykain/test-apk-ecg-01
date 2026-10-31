@@ -267,80 +267,78 @@ fun AiClassificationCard(
                 )
             }
 
-            // 5-Class Probability Breakdown with Beat Waveform Illustrations
-            if (activeAiClassPercentages != null && activeAiClassPercentages.size >= 5) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    for (i in 0 until 5) {
-                        val rawProb = activeAiClassPercentages.getOrNull(i) ?: 0f
-                        val pct = if (rawProb in 0f..1f) rawProb * 100f else rawProb
-                        val color = classColors[i]
-                        val isHighest = (maxProbIndex == i)
+            // 5-Class Probability Breakdown with Beat Waveform Illustrations (Permanently Visible)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                for (i in 0 until 5) {
+                    val rawProb = activeAiClassPercentages?.getOrNull(i) ?: 0f
+                    val pct = if (rawProb in 0f..1f) rawProb * 100f else rawProb
+                    val color = classColors[i]
+                    val isHighest = (maxProbIndex != null && maxProbIndex == i)
 
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isHighest) color.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceContainerLowest,
-                            border = if (isHighest) BorderStroke(1.dp, color.copy(alpha = 0.5f)) else null,
-                            modifier = Modifier.fillMaxWidth()
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isHighest) color.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceContainerLowest,
+                        border = if (isHighest) BorderStroke(1.dp, color.copy(alpha = 0.5f)) else null,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                // 1. Beat Morphology Mini Canvas
-                                BeatMorphologyCanvas(
-                                    beatType = classKeys[i],
-                                    color = color,
-                                    modifier = Modifier.size(width = 28.dp, height = 20.dp)
-                                )
+                            // 1. Beat Morphology Mini Canvas
+                            BeatMorphologyCanvas(
+                                beatType = classKeys[i],
+                                color = color,
+                                modifier = Modifier.size(width = 28.dp, height = 20.dp)
+                            )
 
-                                // 2. Class Key & Title
-                                Column(modifier = Modifier.width(62.dp)) {
-                                    Text(
-                                        text = classKeys[i],
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = color
-                                    )
-                                    Text(
-                                        text = when(classKeys[i]) {
-                                            "N" -> "Normal"
-                                            "S" -> "Supra"
-                                            "V" -> "PVC"
-                                            "F" -> "Fusion"
-                                            else -> "Paced"
-                                        },
-                                        fontSize = 9.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-
-                                // 3. Precision Progress Bar
-                                LinearProgressIndicator(
-                                    progress = { (pct / 100f).coerceIn(0f, 1f) },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(7.dp)
-                                        .clip(RoundedCornerShape(4.dp)),
-                                    color = color,
-                                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                                )
-
-                                // 4. Percentage Text
+                            // 2. Class Key & Title
+                            Column(modifier = Modifier.width(62.dp)) {
                                 Text(
-                                    text = "${String.format(Locale.US, "%.1f", pct)}%",
-                                    fontSize = 11.sp,
+                                    text = classKeys[i],
                                     fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = if (isHighest) color else MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.width(48.dp)
+                                    fontSize = 13.sp,
+                                    color = color
+                                )
+                                Text(
+                                    text = when(classKeys[i]) {
+                                        "N" -> "Normal"
+                                        "S" -> "Supra"
+                                        "V" -> "PVC"
+                                        "F" -> "Fusion"
+                                        else -> "Paced"
+                                    },
+                                    fontSize = 9.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+
+                            // 3. Precision Progress Bar
+                            LinearProgressIndicator(
+                                progress = { (pct / 100f).coerceIn(0f, 1f) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(7.dp)
+                                    .clip(RoundedCornerShape(4.dp)),
+                                color = color,
+                                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                            )
+
+                            // 4. Percentage Text
+                            Text(
+                                text = if (activeAiClassPercentages != null) "${String.format(Locale.US, "%.1f", pct)}%" else "--",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                color = if (isHighest) color else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.width(48.dp)
+                            )
                         }
                     }
                 }

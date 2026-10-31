@@ -60,11 +60,6 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     var showModelDialog by rememberSaveable { mutableStateOf(false) }
-    var isDiagnosticsExpanded by rememberSaveable { mutableStateOf(false) }
-    val chevronRotation by animateFloatAsState(
-        targetValue = if (isDiagnosticsExpanded) 180f else 0f,
-        label = "chevronRotation"
-    )
 
     Column(
         modifier = modifier
@@ -309,20 +304,23 @@ fun SettingsScreen(
             }
         }
 
-        // GROUP 3: Thông tin Phần cứng & Chẩn đoán Kỹ thuật (Collapsible Accordion)
+        // GROUP 3: Thông tin Phần cứng & Chẩn đoán Kỹ thuật (Console Trực tiếp)
         Card(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer
-            )
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
         ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                // Header Row (Clickable to toggle accordion)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Header Row
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { isDiagnosticsExpanded = !isDiagnosticsExpanded }
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -362,64 +360,39 @@ fun SettingsScreen(
                         }
                     }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = EcgTheme.colors.rhythmNormal.copy(alpha = 0.15f)
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = EcgTheme.colors.rhythmNormal.copy(alpha = 0.15f)
-                        ) {
-                            Text(
-                                text = "READY",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace,
-                                color = EcgTheme.colors.rhythmNormal,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-
-                        Icon(
-                            imageVector = Icons.Default.ExpandMore,
-                            contentDescription = if (isDiagnosticsExpanded) "Collapse" else "Expand",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .size(22.dp)
-                                .rotate(chevronRotation)
+                        Text(
+                            text = "READY",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            color = EcgTheme.colors.rhythmNormal,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
                 }
 
-                // Collapsible Content
-                AnimatedVisibility(visible = isDiagnosticsExpanded) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
-                    ) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(bottom = 12.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-                        )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
 
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                DiagnosticLine(label = "MCU", value = "ESP32-S3 Dual-Core Xtensa LX7 @ 240MHz")
-                                DiagnosticLine(label = "Sensors", value = "AD8232 (ECG 125Hz) + MAX30102 (SpO2/PPG 100Hz)")
-                                DiagnosticLine(label = "GATT UUID", value = "4fafc201-1fb5-459e-8fcc-c5c9c331914b")
-                                DiagnosticLine(label = "DSP Filter", value = "IIR Notch 50Hz + HPF 0.95 + MWI 18 + Pan-Tompkins")
-                                DiagnosticLine(label = "Dual AI", value = "ESP32 CNN 3-branch || Android TFLite INT8")
-                            }
-                        }
+                // Hardware Telemetry Lines (Directly visible)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        DiagnosticLine(label = "MCU", value = "ESP32-S3 Dual-Core Xtensa LX7 @ 240MHz")
+                        DiagnosticLine(label = "Sensors", value = "AD8232 (ECG 125Hz) + MAX30102 (SpO2/PPG 100Hz)")
+                        DiagnosticLine(label = "GATT UUID", value = "4fafc201-1fb5-459e-8fcc-c5c9c331914b")
+                        DiagnosticLine(label = "DSP Filter", value = "IIR Notch 50Hz + HPF 0.95 + MWI 18 + Pan-Tompkins")
+                        DiagnosticLine(label = "Dual AI", value = "ESP32 CNN 3-branch || Android TFLite INT8")
                     }
                 }
             }
