@@ -259,12 +259,35 @@ fun AiClassificationCard(
                     )
                 }
 
-                // Semicircular Radial Confidence Gauge
+                // Clinical Confidence Metric Badge (Centered, Balanced & Crisp)
                 val confVal = onDeviceConfidence ?: 98.5f
-                ConfidenceGaugeView(
-                    confidence = confVal,
-                    modifier = Modifier.size(width = 72.dp, height = 44.dp)
-                )
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "${String.format(Locale.US, "%.1f", confVal)}%",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 17.sp
+                        )
+                        Text(
+                            text = if (english) "CONFIDENCE" else "ĐỘ TIN CẬY",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 0.6.sp
+                        )
+                    }
+                }
             }
 
             // 5-Class Probability Breakdown with Beat Waveform Illustrations (Permanently Visible)
