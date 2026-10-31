@@ -311,7 +311,8 @@ fun ChartsScreen(
                     else "Tín hiệu thô trực tiếp từ cảm biến AD8232 (bao gồm nhiễu 50Hz)",
                     samples = raw,
                     waveformColor = EcgTheme.colors.rawChannel,
-                    height = if (selectedChannelFilter != 0) 240.dp else 195.dp
+                    height = if (selectedChannelFilter != 0) 240.dp else 195.dp,
+                    english = english
                 )
             }
 
@@ -325,7 +326,8 @@ fun ChartsScreen(
                     samples = espFiltered,
                     waveformColor = EcgTheme.colors.espFilteredChannel,
                     isPeak = assessment.bpm != null,
-                    height = if (selectedChannelFilter != 0) 240.dp else 195.dp
+                    height = if (selectedChannelFilter != 0) 240.dp else 195.dp,
+                    english = english
                 )
             }
 
@@ -338,7 +340,8 @@ fun ChartsScreen(
                     else "Xử lý bằng bộ lọc RealtimeEcgFilter cục bộ để đối chiếu chất lượng",
                     samples = androidFiltered,
                     waveformColor = EcgTheme.colors.androidFilteredChannel,
-                    height = if (selectedChannelFilter != 0) 240.dp else 195.dp
+                    height = if (selectedChannelFilter != 0) 240.dp else 195.dp,
+                    english = english
                 )
             }
         }
