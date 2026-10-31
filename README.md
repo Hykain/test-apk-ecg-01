@@ -6,19 +6,35 @@
 
 ---
 
-### 🌟 Điểm nổi bật & Tính năng mới (Bản cập nhật v3.0 Material You 3)
+### 🌟 Điểm nổi bật & Tính năng mới (Bản cập nhật v3.5 High-End Clinical UI)
 
-1. **Thiết kế Thuần Android với Phong cách Material You 3**:
+1. **Thiết kế Thuần Android với Phong cách Material You 3 & Chuyển động Mượt mà**:
    - **Tự động đổi màu Dynamic Color**: Tự động trích xuất màu sắc hài hòa từ hình nền thiết bị (Android 12+ / API 31+) qua `dynamicDarkColorScheme()` & `dynamicLightColorScheme()`.
    - **Bảng màu y tế dự phòng (Clinical Fallback)**: Tông màu Clinical Jade & Deep Slate chuẩn tương phản WCAG AA cho các thiết bị chạy Android cũ hơn.
    - **Tràn viền toàn diện (Edge-to-Edge)**: Kích hoạt `enableEdgeToEdge()` chuẩn Android 14/15, thanh trạng thái và điều hướng trong suốt.
+   - **Chuyển tab mượt mà (Animated Content Transitions)**: Chuyển đổi giữa 4 màn hình bằng hiệu ứng Fade Through & Subtle Scale.
    - **Thanh Navigation Bar chuẩn M3**: Sử dụng 100% Vector Icons Material (`MonitorHeart`, `ShowChart`, `TrendingUp`, `Settings`) thay thế ký tự thô.
 
-2. **Đồ thị Sóng Điện tim Y tế Thích ứng 2 Chế độ (Adaptive Medical Canvas)**:
-   - **Chế độ Tối (Dark Mode)**: Màn hình monitor y sinh phòng cấp cứu ICU (nền xanh đen `#081216`, lưới quang phổ Cyan phân giải 0.04s & 0.2s).
-   - **Chế độ Sáng (Light Mode)**: Giấy in điện tim y tế cổ điển (nền `#FFFBF8`, lưới hồng phấn milivolt 1mm & 5mm chuẩn xác).
-   - **Thước chuẩn độ tín hiệu 1 mV ($1\text{ mV} = 10\text{ mm}$)** và tem thông số chuẩn y tế `125 Hz • 25 mm/s • 10 mm/mV`.
+2. **Đồ thị Sóng Điện tim Y tế Quét sóng Thời gian thực (Clinical Sweep Oscilloscope)**:
+   - **Tia quét sóng Radar thời gian thực (Realtime Sweep Scanline)**: Vạch quét radar lướt qua đồ thị với vệt phát quang mờ dần (phosphor fade) hệt như monitor ICU của Philips/GE.
+   - **Hiệu ứng Phosphor Glow hai lớp**: Sóng ECG được vẽ với lớp hào quang phát sáng (glow layer) và lõi tín hiệu sắc nét chống răng cưa (anti-aliasing).
+   - **Thước đo biên độ Calibrated Milivolt**: Cột đo lường tọa độ điện thế rõ ràng (`+1.0 mV`, `0.0 mV`, `-0.5 mV`) cùng xung kiểm chuẩn $1\text{ mV} = 10\text{ mm}$ và đường trung tuyến chuẩn.
+   - **Bộ chọn 4 Theme Đồ thị tức thì**: Chuyển đổi nhanh giữa *Mặc định hệ thống*, *Monitor ICU Dark*, *Giấy in Y tế hồng phấn* và *Hổ phách tương phản cao Amber CRT*.
    - **Đèn LED nháy nhịp tim (R-Peak Pulse)**: Phản hồi nhịp tim đập thời gian thực với hiệu ứng co giãn động `animateFloatAsState`.
+
+3. **Thẻ Sinh hiệu High-Tech Vital Signs (Chống giật số & Đồng hồ SpO₂)**:
+   - **Font số Tabular Monospaced**: Giữ cố định độ rộng con số giúp nhịp tim và mạch quang không bị rung lắc khi cập nhật dữ liệu ở tần số cao 125 Hz.
+   - **Đồng hồ đo bán nguyệt (Radial Arc Gauge)**: Hiển thị mức oxy trong máu SpO₂ trực quan bằng cung tròn gradient với phân cấp cảnh báo y tế.
+   - **Hiệu ứng hào quang sóng tim tỏa (Heartbeat Pulse Ripple)**: Hào quang đỏ san hô bừng sáng nhẹ nhàng quanh thẻ nhịp tim mỗi khi phát hiện đỉnh R-Peak.
+
+4. **Biểu đồ Đường cong Xu hướng 7 Ngày (7-Day Bézier Spline Chart)**:
+   - Thay thế danh sách văn bản khô khan bằng biểu đồ đường cong Bézier mượt mà thể hiện dao động nhịp tim lúc nghỉ qua 7 ngày.
+   - **Dải an toàn lâm sàng (Safe Reference Band 60-100 BPM)**: Vùng màu xanh ngọc nhạt giúp người dùng và bác sĩ nhận biết tức thì các ngày có nhịp chậm hoặc nhịp nhanh.
+   - **Dải thẻ tóm tắt KPI tuần**: Thống kê nhanh nhịp trung bình tuần, khoảng dao động Min-Max và tổng số phiên đo.
+
+5. **Linh vật Ami Mascot Tương tác Bong bóng Thoại (Speech Bubble) & Đèn thở BLE**:
+   - Khung lời khuyên y tế được thiết kế mềm mại kiểu bong bóng hội thoại hướng về phía Ami.
+   - Đèn LED kết nối Bluetooth trên thanh TopAppBar có hiệu ứng ánh sáng thở (breathing glow) êm dịu khi đang nhận dữ liệu từ ESP32.
 
 3. **Kiến trúc Dual AI Engine (Chuyển đổi linh hoạt Toggle)**:
    - **Nguồn 1 - ESP32 Hardware AI**: Tiếp nhận kết quả phân loại từ mô hình CNN 3-nhánh chạy trên vi điều khiển qua gói tin BLE.

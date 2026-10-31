@@ -2,8 +2,10 @@ package com.example.ecgmonitor.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -21,15 +23,18 @@ import com.example.ecgmonitor.domain.EcgAssessment
 import com.example.ecgmonitor.domain.TfliteModelMeta
 import com.example.ecgmonitor.ui.components.AiClassificationCard
 import com.example.ecgmonitor.ui.components.AmiCompanionCard
+import com.example.ecgmonitor.ui.components.EcgWaveformCanvas
 import com.example.ecgmonitor.ui.components.VitalSignsOverview
+import com.example.ecgmonitor.ui.theme.EcgTheme
 
 /**
  * Material 3 Home Dashboard Screen.
- * Presents live telemetry, Ami mascot insights, and edge AI arrhythmia diagnostics.
+ * Presents live telemetry, Ami mascot insights, live rhythm strip, and edge AI arrhythmia diagnostics.
  */
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
+    espFiltered: List<Float> = emptyList(),
     assessment: EcgAssessment,
     spo2: Float?,
     ppgBpm: Float?,
@@ -131,7 +136,7 @@ fun HomeScreen(
                         }
                         Button(
                             onClick = onOpenConnect,
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             modifier = Modifier.defaultMinSize(minHeight = 40.dp)
                         ) {
                             Text(if (english) "Pair" else "Kết nối")
@@ -148,7 +153,7 @@ fun HomeScreen(
             english = english
         )
 
-        // 3. Vital Signs Overview (Heart Rate BPM, SpO2, PPG Pulse)
+        // 3. Vital Signs Overview (Heart Rate BPM, SpO2 %, PPG Pulse)
         VitalSignsOverview(
             bpm = assessment.bpm?.toFloat(),
             spo2 = spo2,
@@ -157,7 +162,67 @@ fun HomeScreen(
             english = english
         )
 
-        // 4. Dual AI Arrhythmia Classification Card
+        // 4. Live Lead II Rhythm Strip (Clinical Quick-Look on Home Dashboard)
+        if (isConnected || isDemoMode) {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(EcgTheme.colors.espFilteredChannel, CircleShape)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = if (english) "LIVE RHYTHM STRIP" else "ĐỒ THỊ NHỊP THỜI GIAN THỰC",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                letterSpacing = 0.8.sp
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest
+                        ) {
+                            Text(
+                                text = "LEAD II • 125 Hz",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    EcgWaveformCanvas(
+                        samples = espFiltered,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(130.dp),
+                        waveformColor = EcgTheme.colors.espFilteredChannel,
+                        isPeak = isPeak,
+                        telemetryTag = "125 Hz • LIVE DSP"
+                    )
+                }
+            }
+        }
+
+        // 5. Dual AI Arrhythmia Classification Card
         AiClassificationCard(
             aiSource = aiSource,
             onSelectAiSource = onSelectAiSource,
@@ -175,4 +240,3 @@ fun HomeScreen(
         Spacer(Modifier.height(8.dp))
     }
 }
-

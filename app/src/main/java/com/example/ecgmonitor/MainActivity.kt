@@ -10,10 +10,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -212,9 +210,21 @@ private fun EcgApp(vm: EcgViewModel, scan: () -> Unit) {
 
     // Pulsing heart animation for peak heartbeat indicator in TopAppBar
     val heartScale by animateFloatAsState(
-        targetValue = if (isPeak) 1.25f else 1.0f,
+        targetValue = if (isPeak) 1.28f else 1.0f,
         animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
         label = "topBarHeartScale"
+    )
+
+    // Breathing glow animation for live BLE connection status LED
+    val infiniteTransition = rememberInfiniteTransition(label = "blePulse")
+    val bleGlowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.75f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1100, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bleGlowAlpha"
     )
 
     EcgTheme(
@@ -265,7 +275,7 @@ private fun EcgApp(vm: EcgViewModel, scan: () -> Unit) {
                             modifier = Modifier.padding(end = 6.dp)
                         )
 
-                        // Bluetooth Status Quick Action Button
+                        // Bluetooth Status Quick Action Button with Breathing LED
                         FilledTonalButton(
                             onClick = {
                                 scan()
@@ -283,18 +293,32 @@ private fun EcgApp(vm: EcgViewModel, scan: () -> Unit) {
                                 .padding(end = 8.dp)
                                 .defaultMinSize(minHeight = 36.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(
-                                        if (isConnected || isDemoMode)
-                                            EcgTheme.colors.rhythmNormal
-                                        else
-                                            MaterialTheme.colorScheme.error,
-                                        CircleShape
+                            Box(contentAlignment = Alignment.Center) {
+                                if (isConnected || isDemoMode) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .background(
+                                                EcgTheme.colors.rhythmNormal.copy(alpha = bleGlowAlpha),
+                                                CircleShape
+                                            )
                                     )
-                            )
-                            Spacer(Modifier.width(6.dp))
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(
+                                            if (isConnected || isDemoMode)
+                                                EcgTheme.colors.rhythmNormal
+                                            else
+                                                MaterialTheme.colorScheme.error,
+                                            CircleShape
+                                        )
+                                )
+                            }
+
+                            Spacer(Modifier.width(7.dp))
+
                             Text(
                                 text = if (isDemoMode) (if (english) "Demo" else "Mô phỏng")
                                 else if (isConnected) (selected?.name ?: if (english) "Connected" else "Đã kết nối")
@@ -346,77 +370,88 @@ private fun EcgApp(vm: EcgViewModel, scan: () -> Unit) {
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                when (page) {
-                    0 -> HomeScreen(
-                        assessment = assessment,
-                        spo2 = spo2,
-                        ppgBpm = ppgBpm,
-                        activeAiClassName = activeAiClassName,
-                        activeAiClassPercentages = activeAiClassPercentages,
-                        aiSource = aiSource,
-                        onSelectAiSource = vm::setAiSource,
-                        availableModels = availableModels,
-                        selectedModel = selectedModel,
-                        onSelectModel = vm::selectModel,
-                        onDeviceConfidence = onDeviceConfidence,
-                        onDeviceInferenceTimeMs = onDeviceInferenceTimeMs,
-                        samples = samples,
-                        gifAsset = gifAsset,
-                        isPeak = isPeak,
-                        isConnected = isConnected || isDemoMode,
-                        isDemoMode = isDemoMode,
-                        onToggleDemo = vm::toggleDemoMode,
-                        onOpenConnect = {
-                            scan()
-                            showConnectSheet = true
-                        },
-                        english = english
-                    )
-                    1 -> ChartsScreen(
-                        raw = raw,
-                        espFiltered = espFiltered,
-                        androidFiltered = androidFiltered,
-                        status = if (isDemoMode) (if (english) "125Hz Simulated ECG Stream" else "Chế độ mô phỏng Demo ECG 125Hz") else status,
-                        assessment = assessment,
-                        spo2 = spo2,
-                        ppgBpm = ppgBpm,
-                        aiClassName = activeAiClassName,
-                        selected = selected,
-                        isConnected = isConnected || isDemoMode,
-                        samples = samples,
-                        onOpenConnect = {
-                            scan()
-                            showConnectSheet = true
-                        },
-                        disconnect = vm::disconnect,
-                        save = vm::saveCurrentMeasurement,
-                        onExportCurrentCsv = {
-                            isExportingCurrentSession = true
-                            pendingExportSession = null
-                            exportCsvLauncher.launch(vm.generateCsvFilename())
-                        },
-                        english = english
-                    )
-                    2 -> TrendsScreen(
-                        sessions = sessions,
-                        onExportSessionCsv = { session ->
-                            isExportingCurrentSession = false
-                            pendingExportSession = session
-                            exportCsvLauncher.launch(vm.generateCsvFilename(session.startedAt))
-                        },
-                        english = english
-                    )
-                    else -> SettingsScreen(
-                        dark = dark,
-                        onDark = { dark = it },
-                        english = english,
-                        onEnglish = { english = it },
-                        isDemoMode = isDemoMode,
-                        onToggleDemo = vm::toggleDemoMode,
-                        selectedModel = selectedModel,
-                        availableModels = availableModels,
-                        onSelectModel = vm::selectModel
-                    )
+                // Silky Smooth Tab Switch Transitions
+                AnimatedContent(
+                    targetState = page,
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(220)) + scaleIn(initialScale = 0.97f, animationSpec = tween(220)))
+                            .togetherWith(fadeOut(animationSpec = tween(150)))
+                    },
+                    label = "tabTransition"
+                ) { targetPage ->
+                    when (targetPage) {
+                        0 -> HomeScreen(
+                            espFiltered = espFiltered,
+                            assessment = assessment,
+                            spo2 = spo2,
+                            ppgBpm = ppgBpm,
+                            activeAiClassName = activeAiClassName,
+                            activeAiClassPercentages = activeAiClassPercentages,
+                            aiSource = aiSource,
+                            onSelectAiSource = vm::setAiSource,
+                            availableModels = availableModels,
+                            selectedModel = selectedModel,
+                            onSelectModel = vm::selectModel,
+                            onDeviceConfidence = onDeviceConfidence,
+                            onDeviceInferenceTimeMs = onDeviceInferenceTimeMs,
+                            samples = samples,
+                            gifAsset = gifAsset,
+                            isPeak = isPeak,
+                            isConnected = isConnected || isDemoMode,
+                            isDemoMode = isDemoMode,
+                            onToggleDemo = vm::toggleDemoMode,
+                            onOpenConnect = {
+                                scan()
+                                showConnectSheet = true
+                            },
+                            english = english
+                        )
+                        1 -> ChartsScreen(
+                            raw = raw,
+                            espFiltered = espFiltered,
+                            androidFiltered = androidFiltered,
+                            status = if (isDemoMode) (if (english) "125Hz Simulated ECG Stream" else "Chế độ mô phỏng Demo ECG 125Hz") else status,
+                            assessment = assessment,
+                            spo2 = spo2,
+                            ppgBpm = ppgBpm,
+                            aiClassName = activeAiClassName,
+                            selected = selected,
+                            isConnected = isConnected || isDemoMode,
+                            samples = samples,
+                            onOpenConnect = {
+                                scan()
+                                showConnectSheet = true
+                            },
+                            disconnect = vm::disconnect,
+                            save = vm::saveCurrentMeasurement,
+                            onExportCurrentCsv = {
+                                isExportingCurrentSession = true
+                                pendingExportSession = null
+                                exportCsvLauncher.launch(vm.generateCsvFilename())
+                            },
+                            english = english
+                        )
+                        2 -> TrendsScreen(
+                            sessions = sessions,
+                            onExportSessionCsv = { session ->
+                                isExportingCurrentSession = false
+                                pendingExportSession = session
+                                exportCsvLauncher.launch(vm.generateCsvFilename(session.startedAt))
+                            },
+                            english = english
+                        )
+                        else -> SettingsScreen(
+                            dark = dark,
+                            onDark = { dark = it },
+                            english = english,
+                            onEnglish = { english = it },
+                            isDemoMode = isDemoMode,
+                            onToggleDemo = vm::toggleDemoMode,
+                            selectedModel = selectedModel,
+                            availableModels = availableModels,
+                            onSelectModel = vm::selectModel
+                        )
+                    }
                 }
             }
 

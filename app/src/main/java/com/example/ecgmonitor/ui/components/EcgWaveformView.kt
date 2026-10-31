@@ -1,39 +1,80 @@
 package com.example.ecgmonitor.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ecgmonitor.ui.theme.DarkEcgColors
 import com.example.ecgmonitor.ui.theme.EcgTheme
+import com.example.ecgmonitor.ui.theme.EcgThemeColors
+import com.example.ecgmonitor.ui.theme.LightEcgColors
 import kotlin.math.max
 
 /**
- * Pure Android Material 3 Medical ECG Waveform Canvas.
- * Supports adaptive themes:
- * - Dark Mode: ICU clinical phosphor monitor grid (0.04s & 0.2s cyan subdivisions).
- * - Light Mode: Classic clinical salmon/pink medical ECG chart paper.
+ * Display themes for clinical ECG waveform canvas.
+ */
+enum class EcgDisplayTheme(val displayNameVi: String, val displayNameEn: String) {
+    SYSTEM("Tự động", "System"),
+    ICU_DARK("Monitor ICU", "ICU Dark"),
+    CLINICAL_PAPER("Giấy in Y tế", "Medical Paper"),
+    AMBER_GLOW("Hổ phách", "Amber CRT")
+}
+
+// Surgical Amber high-contrast theme
+val AmberEcgColors = EcgThemeColors(
+    canvasBackground = Color(0xFF0C0A06),
+    gridMajor = Color(0x3DF59E0B),
+    gridMinor = Color(0x18F59E0B),
+    rawChannel = Color(0xFFEF4444),
+    espFilteredChannel = Color(0xFFFBBF24),
+    androidFilteredChannel = Color(0xFF38BDF8),
+    peakMarker = Color(0xFFEF4444),
+    spo2Color = Color(0xFFFBBF24),
+    ppgBpmColor = Color(0xFFF59E0B),
+    rhythmNormal = Color(0xFF34D399),
+    rhythmSvc = Color(0xFFFBBF24),
+    rhythmPvc = Color(0xFFF87171),
+    rhythmFusion = Color(0xFFA78BFA),
+    rhythmUnknown = Color(0xFF9CA3AF)
+)
+
+/**
+ * Professional High-End Medical ECG Waveform Oscilloscope.
+ * Features:
+ * - Realtime animated sweep scanline with fading phosphor glow trail
+ * - Phosphor halo trace with ambient glow & anti-aliased Bézier smoothing
+ * - Calibrated Y-axis milivolt scale ticks (+1.0 mV, 0.0 mV, -0.5 mV)
+ * - Standard 1 mV calibration pulse
+ * - Dotted clinical zero-baseline reference
+ * - 4 interactive visual themes (Auto System, ICU Dark, Medical Pink Paper, Amber CRT)
  */
 @Composable
 fun EcgWaveformCanvas(
@@ -41,95 +82,159 @@ fun EcgWaveformCanvas(
     modifier: Modifier = Modifier,
     waveformColor: Color = EcgTheme.colors.espFilteredChannel,
     isPeak: Boolean = false,
+    displayTheme: EcgDisplayTheme = EcgDisplayTheme.SYSTEM,
     showScaleMarker: Boolean = true,
     telemetryTag: String = "125 Hz • 25 mm/s • 10 mm/mV"
 ) {
-    val themeColors = EcgTheme.colors
+    val systemThemeColors = EcgTheme.colors
+    val activeColors = when (displayTheme) {
+        EcgDisplayTheme.SYSTEM -> systemThemeColors
+        EcgDisplayTheme.ICU_DARK -> DarkEcgColors
+        EcgDisplayTheme.CLINICAL_PAPER -> LightEcgColors
+        EcgDisplayTheme.AMBER_GLOW -> AmberEcgColors
+    }
+
+    val activeWaveformColor = when (displayTheme) {
+        EcgDisplayTheme.AMBER_GLOW -> AmberEcgColors.espFilteredChannel
+        EcgDisplayTheme.CLINICAL_PAPER -> LightEcgColors.espFilteredChannel
+        else -> waveformColor
+    }
+
+    // Animated realtime sweep scanline progress (0f to 1f continuously)
+    val infiniteTransition = rememberInfiniteTransition(label = "sweepTransition")
+    val sweepProgress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "sweepScanline"
+    )
+
+    // Pulsing glow radius for the leading active tip
+    val tipPulse by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 1.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "tipPulse"
+    )
+
+    val textMeasurer = rememberTextMeasurer()
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(themeColors.canvasBackground)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .background(activeColors.canvasBackground)
+            .border(1.dp, activeColors.gridMajor.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val width = size.width
             val height = size.height
 
-            // 1. Draw Medical Grid (Minor 1mm & Major 5mm / 0.04s & 0.2s grid)
+            // 1. Draw Medical Grid (0.04s minor & 0.2s major)
             drawMedicalGrid(
                 width = width,
                 height = height,
-                majorColor = themeColors.gridMajor,
-                minorColor = themeColors.gridMinor
+                majorColor = activeColors.gridMajor,
+                minorColor = activeColors.gridMinor
             )
 
-            // 2. Draw 1 mV Reference Pulse (Standard clinical calibration marker)
+            // 2. Draw Calibrated Y-Axis Milivolt Scale (+1.0mV, 0.0mV, -0.5mV)
+            drawVoltageScaleTicks(
+                height = height,
+                gridColor = activeColors.gridMajor,
+                textMeasurer = textMeasurer
+            )
+
+            // 3. Draw 1 mV Reference Pulse
             if (showScaleMarker) {
-                drawCalibrationPulse(height = height, color = themeColors.gridMajor)
+                drawCalibrationPulse(height = height, color = activeColors.gridMajor)
             }
 
-            // 3. Draw ECG Signal Waveform
+            // 4. Draw ECG Signal Waveform with Phosphor Glow & Fill
             if (samples.size >= 2) {
-                drawEcgSignal(
+                drawAdvancedEcgSignal(
                     samples = samples,
                     width = width,
                     height = height,
-                    color = waveformColor
+                    color = activeWaveformColor,
+                    sweepProgress = sweepProgress,
+                    tipPulse = tipPulse
                 )
             } else {
-                // Flatline / Standby baseline when no samples yet
-                val baselineY = height / 2f
+                // Standby baseline when waiting for data
+                val baselineY = height * 0.5f
                 drawLine(
-                    color = waveformColor.copy(alpha = 0.5f),
-                    start = Offset(0f, baselineY),
+                    color = activeWaveformColor.copy(alpha = 0.45f),
+                    start = Offset(42.dp.toPx(), baselineY),
                     end = Offset(width, baselineY),
-                    strokeWidth = 1.5.dp.toPx()
+                    strokeWidth = 1.8.dp.toPx()
                 )
             }
+
+            // 5. Realtime Oscilloscope Sweep Line
+            drawSweepScanline(
+                width = width,
+                height = height,
+                progress = sweepProgress,
+                beamColor = activeWaveformColor
+            )
         }
 
-        // Live R-Peak indicator badge (pulsing heart)
+        // Live R-Peak indicator badge (Pulsing heart effect)
         if (isPeak) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(8.dp)
-                    .background(themeColors.peakMarker.copy(alpha = 0.2f), CircleShape)
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                    .background(activeColors.peakMarker.copy(alpha = 0.2f), CircleShape)
+                    .border(1.dp, activeColors.peakMarker.copy(alpha = 0.5f), CircleShape)
+                    .padding(horizontal = 9.dp, vertical = 3.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
                             .size(7.dp)
-                            .background(themeColors.peakMarker, CircleShape)
+                            .background(activeColors.peakMarker, CircleShape)
                     )
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(5.dp))
                     Text(
                         text = "R-PEAK",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = themeColors.peakMarker
+                        color = activeColors.peakMarker,
+                        letterSpacing = 0.8.sp
                     )
                 }
             }
         }
 
         // Medical Standard Stamp Tag (Bottom Right)
-        Text(
-            text = telemetryTag,
-            style = MaterialTheme.typography.labelSmall,
-            color = themeColors.gridMajor.copy(alpha = 0.85f),
-            fontSize = 9.sp,
+        Surface(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(horizontal = 10.dp, vertical = 6.dp)
-        )
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            color = activeColors.canvasBackground.copy(alpha = 0.75f),
+            shape = RoundedCornerShape(4.dp)
+        ) {
+            Text(
+                text = telemetryTag,
+                style = MaterialTheme.typography.labelSmall,
+                color = activeColors.gridMajor.copy(alpha = 0.9f),
+                fontSize = 9.sp,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+            )
+        }
     }
 }
 
 /**
- * Renders clinical medical grid with major (5mm) and minor (1mm) divisions.
+ * Draws precision medical grid with standard subdivisions.
  */
 private fun DrawScope.drawMedicalGrid(
     width: Float,
@@ -137,95 +242,183 @@ private fun DrawScope.drawMedicalGrid(
     majorColor: Color,
     minorColor: Color
 ) {
-    // 25 horizontal divisions (minor grid) and 5 major blocks
+    val leftGutter = 34.dp.toPx()
+    val gridWidth = width - leftGutter
     val numHorizontalDivisions = 25
     val numVerticalDivisions = 15
 
-    val xStep = width / numHorizontalDivisions
+    val xStep = gridWidth / numHorizontalDivisions
     val yStep = height / numVerticalDivisions
 
-    // Minor vertical lines (every 0.04s)
+    // Vertical time subdivisions (0.04s minor / 0.2s major)
     for (i in 0..numHorizontalDivisions) {
-        val x = i * xStep
+        val x = leftGutter + (i * xStep)
         val isMajor = (i % 5 == 0)
         drawLine(
             color = if (isMajor) majorColor else minorColor,
             start = Offset(x, 0f),
             end = Offset(x, height),
-            strokeWidth = if (isMajor) 1.2.dp.toPx() else 0.6.dp.toPx()
+            strokeWidth = if (isMajor) 1.2.dp.toPx() else 0.5.dp.toPx()
         )
     }
 
-    // Minor horizontal lines (every 0.1 mV)
+    // Horizontal voltage subdivisions (0.1 mV minor / 0.5 mV major)
     for (j in 0..numVerticalDivisions) {
         val y = j * yStep
         val isMajor = (j % 5 == 0)
+        val isCenterBaseline = (j == numVerticalDivisions / 2)
+
         drawLine(
-            color = if (isMajor) majorColor else minorColor,
-            start = Offset(0f, y),
+            color = if (isCenterBaseline) majorColor.copy(alpha = 0.85f)
+            else if (isMajor) majorColor
+            else minorColor,
+            start = Offset(leftGutter, y),
             end = Offset(width, y),
-            strokeWidth = if (isMajor) 1.2.dp.toPx() else 0.6.dp.toPx()
+            strokeWidth = if (isCenterBaseline) 1.4.dp.toPx()
+            else if (isMajor) 1.1.dp.toPx()
+            else 0.5.dp.toPx()
         )
     }
 }
 
 /**
- * Standard 1 mV calibration reference square pulse on the far left.
+ * Draws calibrated Y-axis milivolt text and tick markers on the left gutter.
+ */
+private fun DrawScope.drawVoltageScaleTicks(
+    height: Float,
+    gridColor: Color,
+    textMeasurer: androidx.compose.ui.text.TextMeasurer
+) {
+    val tickX = 30.dp.toPx()
+    val tickLength = 4.dp.toPx()
+
+    // 3 Voltage Points: +1.0 mV (top 20%), 0.0 mV (center 50%), -0.5 mV (bottom 80%)
+    val points = listOf(
+        Pair(height * 0.18f, "+1.0"),
+        Pair(height * 0.50f, " 0.0"),
+        Pair(height * 0.82f, "-0.5")
+    )
+
+    points.forEach { (y, label) ->
+        // Small tick mark
+        drawLine(
+            color = gridColor,
+            start = Offset(tickX - tickLength, y),
+            end = Offset(tickX, y),
+            strokeWidth = 1.dp.toPx()
+        )
+
+        // Text label
+        val textLayoutResult = textMeasurer.measure(
+            text = label,
+            style = TextStyle(
+                fontSize = 8.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Medium,
+                color = gridColor.copy(alpha = 0.85f)
+            )
+        )
+
+        drawText(
+            textLayoutResult = textLayoutResult,
+            topLeft = Offset(4.dp.toPx(), y - (textLayoutResult.size.height / 2f))
+        )
+    }
+}
+
+/**
+ * Standard 1 mV calibration reference square pulse next to scale ticks.
  */
 private fun DrawScope.drawCalibrationPulse(
     height: Float,
     color: Color
 ) {
-    val baselineY = height * 0.5f
-    val pulseHeight = height * 0.28f // ~ 10mm representation
-    val startX = 8.dp.toPx()
-    val pulseWidth = 10.dp.toPx()
+    val baselineY = height * 0.50f
+    val pulseHeight = height * 0.32f // Represents 1 mV deflection
+    val startX = 38.dp.toPx()
+    val pulseWidth = 8.dp.toPx()
 
     val pulsePath = Path().apply {
         moveTo(startX, baselineY)
-        lineTo(startX + 4.dp.toPx(), baselineY)
-        lineTo(startX + 4.dp.toPx(), baselineY - pulseHeight)
-        lineTo(startX + 4.dp.toPx() + pulseWidth, baselineY - pulseHeight)
-        lineTo(startX + 4.dp.toPx() + pulseWidth, baselineY)
-        lineTo(startX + 8.dp.toPx() + pulseWidth, baselineY)
+        lineTo(startX + 3.dp.toPx(), baselineY)
+        lineTo(startX + 3.dp.toPx(), baselineY - pulseHeight)
+        lineTo(startX + 3.dp.toPx() + pulseWidth, baselineY - pulseHeight)
+        lineTo(startX + 3.dp.toPx() + pulseWidth, baselineY)
+        lineTo(startX + 7.dp.toPx() + pulseWidth, baselineY)
     }
 
     drawPath(
         path = pulsePath,
-        color = color.copy(alpha = 0.7f),
-        style = Stroke(width = 1.dp.toPx(), cap = StrokeCap.Square)
+        color = color.copy(alpha = 0.8f),
+        style = Stroke(width = 1.2.dp.toPx(), cap = StrokeCap.Square)
     )
 }
 
 /**
- * Draws the continuous ECG waveform with anti-aliasing and smooth interpolation.
+ * Draws the high-fidelity ECG trace with dual-layer phosphor glow and leading tip pulse.
  */
-private fun DrawScope.drawEcgSignal(
+private fun DrawScope.drawAdvancedEcgSignal(
     samples: List<Float>,
     width: Float,
     height: Float,
-    color: Color
+    color: Color,
+    sweepProgress: Float,
+    tipPulse: Float
 ) {
+    val leftGutter = 54.dp.toPx()
+    val activeWidth = width - leftGutter
     val lo = samples.minOrNull() ?: 0f
     val hi = samples.maxOrNull() ?: 1f
-    val span = max(0.2f, hi - lo) // Avoid zero division if flatlined
+    val span = max(0.2f, hi - lo)
 
-    val path = Path()
     val count = samples.size
+    val path = Path()
+    var latestPoint: Offset? = null
 
     for (i in 0 until count) {
-        val x = (i.toFloat() / (count - 1)) * width
+        val x = leftGutter + ((i.toFloat() / (count - 1)) * activeWidth)
         val normalized = (samples[i] - lo) / span
-        // Margin 12% top & bottom to keep R-peaks and S-valleys within bounds
-        val y = height - (normalized * (height * 0.76f) + (height * 0.12f))
+        val y = height - (normalized * (height * 0.74f) + (height * 0.13f))
 
         if (i == 0) {
             path.moveTo(x, y)
         } else {
             path.lineTo(x, y)
         }
+
+        if (i == count - 1) {
+            latestPoint = Offset(x, y)
+        }
     }
 
+    // 1. Subtle area gradient fill under the curve (Phosphor persistence effect)
+    val fillPath = Path().apply {
+        addPath(path)
+        lineTo(leftGutter + activeWidth, height * 0.5f)
+        lineTo(leftGutter, height * 0.5f)
+        close()
+    }
+    drawPath(
+        path = fillPath,
+        brush = Brush.verticalGradient(
+            colors = listOf(color.copy(alpha = 0.08f), Color.Transparent),
+            startY = 0f,
+            endY = height
+        )
+    )
+
+    // 2. Layer 1: Ambient soft phosphor glow (Outer stroke)
+    drawPath(
+        path = path,
+        color = color.copy(alpha = 0.24f),
+        style = Stroke(
+            width = 4.8.dp.toPx(),
+            cap = StrokeCap.Round,
+            join = StrokeJoin.Round
+        )
+    )
+
+    // 3. Layer 2: Core crisp beam (Inner sharp stroke)
     drawPath(
         path = path,
         color = color,
@@ -235,11 +428,66 @@ private fun DrawScope.drawEcgSignal(
             join = StrokeJoin.Round
         )
     )
+
+    // 4. Leading active tip glowing dot & expanding ripple
+    latestPoint?.let { pt ->
+        // Outer pulsing halo
+        drawCircle(
+            color = color.copy(alpha = 0.35f),
+            radius = 6.dp.toPx() * tipPulse,
+            center = pt
+        )
+        // Core glowing dot
+        drawCircle(
+            color = color,
+            radius = 3.5.dp.toPx(),
+            center = pt
+        )
+        drawCircle(
+            color = Color.White,
+            radius = 1.5.dp.toPx(),
+            center = pt
+        )
+    }
+}
+
+/**
+ * Draws the real-time sweeping radar/oscilloscope beam across the grid.
+ */
+private fun DrawScope.drawSweepScanline(
+    width: Float,
+    height: Float,
+    progress: Float,
+    beamColor: Color
+) {
+    val leftGutter = 54.dp.toPx()
+    val sweepWidth = width - leftGutter
+    val currentX = leftGutter + (progress * sweepWidth)
+    val trailWidth = 28.dp.toPx()
+
+    // Fading phosphor trail behind the sweep line
+    drawRect(
+        brush = Brush.horizontalGradient(
+            colors = listOf(Color.Transparent, beamColor.copy(alpha = 0.12f)),
+            startX = currentX - trailWidth,
+            endX = currentX
+        ),
+        topLeft = Offset(max(leftGutter, currentX - trailWidth), 0f),
+        size = Size(trailWidth, height)
+    )
+
+    // Sharp sweep line
+    drawLine(
+        color = beamColor.copy(alpha = 0.65f),
+        start = Offset(currentX, 0f),
+        end = Offset(currentX, height),
+        strokeWidth = 1.2.dp.toPx()
+    )
 }
 
 /**
  * Material 3 Card Container for ECG Waveforms.
- * Features clinical telemetry headers, channel badges, and responsive waveform display.
+ * Features clinical telemetry headers, interactive theme switcher, channel badges, and responsive oscilloscope canvas.
  */
 @Composable
 fun EcgChartCard(
@@ -250,20 +498,23 @@ fun EcgChartCard(
     waveformColor: Color,
     modifier: Modifier = Modifier,
     isPeak: Boolean = false,
-    height: androidx.compose.ui.unit.Dp = 185.dp
+    height: Dp = 195.dp
 ) {
+    var selectedTheme by rememberSaveable { mutableStateOf(EcgDisplayTheme.SYSTEM) }
+    var showThemeMenu by remember { mutableStateOf(false) }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(18.dp)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Header Row: Channel Badge + Title + Telemetry Info
+            // Header Row: Channel Badge + Title + Theme Switcher & Sample Count
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -276,7 +527,7 @@ fun EcgChartCard(
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = waveformColor.copy(alpha = 0.18f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, waveformColor.copy(alpha = 0.5f))
+                        border = BorderStroke(1.dp, waveformColor.copy(alpha = 0.5f))
                     ) {
                         Text(
                             text = "CH $channelNumber",
@@ -302,31 +553,86 @@ fun EcgChartCard(
                     }
                 }
 
-                // Sample count pill
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest
+                // Action Row: Theme Switcher Pill & Sample Counter
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = "${samples.size} pts",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
+                    // Theme selector dropdown pill
+                    Box {
+                        Surface(
+                            onClick = { showThemeMenu = true },
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            modifier = Modifier.defaultMinSize(minHeight = 28.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Palette,
+                                    contentDescription = "Theme",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = selectedTheme.displayNameVi,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = showThemeMenu,
+                            onDismissRequest = { showThemeMenu = false }
+                        ) {
+                            EcgDisplayTheme.values().forEach { themeOption ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            themeOption.displayNameVi,
+                                            fontWeight = if (themeOption == selectedTheme) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    onClick = {
+                                        selectedTheme = themeOption
+                                        showThemeMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Sample points pill
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest
+                    ) {
+                        Text(
+                            text = "${samples.size} pts",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
 
-            // Waveform Canvas Component
+            // High-Tech Oscilloscope Canvas Component
             EcgWaveformCanvas(
                 samples = samples,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(height),
                 waveformColor = waveformColor,
-                isPeak = isPeak
+                isPeak = isPeak,
+                displayTheme = selectedTheme
             )
         }
     }
 }
-
