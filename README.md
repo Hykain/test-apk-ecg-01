@@ -6,35 +6,34 @@
 
 ---
 
-### 🌟 Điểm nổi bật & Tính năng mới (Bản cập nhật v3.5 High-End Clinical UI)
+### 🌟 Điểm nổi bật & Tính năng mới (Bản cập nhật v4.0 Elite Clinical Masterpiece)
 
-1. **Thiết kế Thuần Android với Phong cách Material You 3 & Chuyển động Mượt mà**:
+1. **Giao diện Thuần Android Material You 3 & Chuyển động Mượt mà**:
+   - **Nút chuyển đổi nhanh Dark/Light ICU Mode**: Bật tắt tức thì giữa chế độ *Dark ICU Clinical* và *Light Mode* ngay trên thanh tiêu đề `TopAppBar`.
+   - **Phản hồi xúc giác Haptic (`LocalHapticFeedback`)**: Kích hoạt xung rung nhẹ tinh tế mỗi khi phát hiện đỉnh nhịp tim (R-Peak).
    - **Tự động đổi màu Dynamic Color**: Tự động trích xuất màu sắc hài hòa từ hình nền thiết bị (Android 12+ / API 31+) qua `dynamicDarkColorScheme()` & `dynamicLightColorScheme()`.
    - **Bảng màu y tế dự phòng (Clinical Fallback)**: Tông màu Clinical Jade & Deep Slate chuẩn tương phản WCAG AA cho các thiết bị chạy Android cũ hơn.
    - **Tràn viền toàn diện (Edge-to-Edge)**: Kích hoạt `enableEdgeToEdge()` chuẩn Android 14/15, thanh trạng thái và điều hướng trong suốt.
-   - **Chuyển tab mượt mà (Animated Content Transitions)**: Chuyển đổi giữa 4 màn hình bằng hiệu ứng Fade Through & Subtle Scale.
-   - **Thanh Navigation Bar chuẩn M3**: Sử dụng 100% Vector Icons Material (`MonitorHeart`, `ShowChart`, `TrendingUp`, `Settings`) thay thế ký tự thô.
 
-2. **Đồ thị Sóng Điện tim Y tế Quét sóng Thời gian thực (Clinical Sweep Oscilloscope)**:
-   - **Tia quét sóng Radar thời gian thực (Realtime Sweep Scanline)**: Vạch quét radar lướt qua đồ thị với vệt phát quang mờ dần (phosphor fade) hệt như monitor ICU của Philips/GE.
-   - **Hiệu ứng Phosphor Glow hai lớp**: Sóng ECG được vẽ với lớp hào quang phát sáng (glow layer) và lõi tín hiệu sắc nét chống răng cưa (anti-aliasing).
-   - **Thước đo biên độ Calibrated Milivolt**: Cột đo lường tọa độ điện thế rõ ràng (`+1.0 mV`, `0.0 mV`, `-0.5 mV`) cùng xung kiểm chuẩn $1\text{ mV} = 10\text{ mm}$ và đường trung tuyến chuẩn.
-   - **Bộ chọn 4 Theme Đồ thị tức thì**: Chuyển đổi nhanh giữa *Mặc định hệ thống*, *Monitor ICU Dark*, *Giấy in Y tế hồng phấn* và *Hổ phách tương phản cao Amber CRT*.
-   - **Đèn LED nháy nhịp tim (R-Peak Pulse)**: Phản hồi nhịp tim đập thời gian thực với hiệu ứng co giãn động `animateFloatAsState`.
+2. **Màn hình Trang chủ (HomeScreen) - Clinical Telemetry Hub**:
+   - **Thanh đo tham số Điện tâm đồ Lâm sàng (Clinical Telemetry Ribbon)**: Bổ sung 4 chỉ số đo đạc thời gian thực gồm `PR` (120-200 ms), `QRS` (<100 ms), `QTc` (<440 ms Bazett), và `AMP` (biên độ đỉnh sóng R).
+   - **Huy hiệu Phân loại Nhịp Tim Động (Cardiac Rhythm Badge)**: Tự động cảnh báo *Normal Sinus Rhythm*, *Bradycardia* (Nhịp chậm) hoặc *Tachycardia* (Nhịp nhanh).
+   - **Mini-Sparkline ECG & PPG**: Tích hợp đường sóng ECG và mạch quang PPG động bên trong các ô chỉ số sinh hiệu nhịp tim và SpO2.
 
-3. **Thẻ Sinh hiệu High-Tech Vital Signs (Chống giật số & Đồng hồ SpO₂)**:
-   - **Font số Tabular Monospaced**: Giữ cố định độ rộng con số giúp nhịp tim và mạch quang không bị rung lắc khi cập nhật dữ liệu ở tần số cao 125 Hz.
-   - **Đồng hồ đo bán nguyệt (Radial Arc Gauge)**: Hiển thị mức oxy trong máu SpO₂ trực quan bằng cung tròn gradient với phân cấp cảnh báo y tế.
-   - **Hiệu ứng hào quang sóng tim tỏa (Heartbeat Pulse Ripple)**: Hào quang đỏ san hô bừng sáng nhẹ nhàng quanh thẻ nhịp tim mỗi khi phát hiện đỉnh R-Peak.
+3. **Màn hình Đồ thị (ChartsScreen) - Chế độ Xếp tầng 3 Đạo trình Đồng bộ (Stacked 3-Lead Monitor)**:
+   - **Dao động ký Xếp tầng (Stacked 3-Lead Canvas)**: Hiển thị song song 3 đạo trình chuẩn máy monitor bệnh viện: Đạo trình I (Thô - Raw ADC), Đạo trình II (Lọc số phần cứng ESP32 DSP Notch 50Hz), và Đạo trình III (Lọc số đối chiếu Android DSP).
+   - **Tia quét Quét Radar dọc (Vertical Synchronized Sweep Scanline)**: Vạch quét radar lướt qua cả 3 đạo trình cùng lúc với vệt phosphor lưu sáng.
+   - **Xung chuẩn độ 1 mV độc lập từng tầng**: Tự động vẽ bước nhảy hiệu chuẩn 1 mV ở đầu mỗi đạo trình để kiểm tra độ lợi biên độ tín hiệu.
+   - **Chuyển đổi linh hoạt**: Lựa chọn giữa *Xếp tầng 3 Đạo trình Đồng bộ* và *Từng Thẻ Riêng* để phóng to bất kỳ kênh nào.
 
-4. **Biểu đồ Đường cong Xu hướng 7 Ngày (7-Day Bézier Spline Chart)**:
-   - Thay thế danh sách văn bản khô khan bằng biểu đồ đường cong Bézier mượt mà thể hiện dao động nhịp tim lúc nghỉ qua 7 ngày.
-   - **Dải an toàn lâm sàng (Safe Reference Band 60-100 BPM)**: Vùng màu xanh ngọc nhạt giúp người dùng và bác sĩ nhận biết tức thì các ngày có nhịp chậm hoặc nhịp nhanh.
-   - **Dải thẻ tóm tắt KPI tuần**: Thống kê nhanh nhịp trung bình tuần, khoảng dao động Min-Max và tổng số phiên đo.
+4. **Màn hình Xu hướng (TrendsScreen) - Chạm vuốt Tương tác Touch Scrubber & Biến thiên Nhịp tim (HRV)**:
+   - **Kính lúp Touch Scrubber**: Chạm hoặc vuốt ngón tay trên đường cong Bézier 7 ngày để hiển thị thanh thước ngắm gióng thẳng hàng và Tooltip chi tiết (ngày, giờ, nhịp tim, đánh giá lâm sàng).
+   - **Dải thẻ 7 Ngày trong Tuần (Weekly Day-by-Day Strip)**: 7 thẻ ngày tương tác với chấm trạng thái màu sắc chuẩn y tế.
+   - **Thẻ Đánh giá Biến thiên Nhịp tim (Autonomic HRV Balance)**: Ước tính chỉ số SDNN (độ lệch chuẩn khoảng RR) và đánh giá mức độ phục hồi thần kinh tim mạch.
 
-5. **Linh vật Ami Mascot Tương tác Bong bóng Thoại (Speech Bubble) & Đèn thở BLE**:
-   - Khung lời khuyên y tế được thiết kế mềm mại kiểu bong bóng hội thoại hướng về phía Ami.
-   - Đèn LED kết nối Bluetooth trên thanh TopAppBar có hiệu ứng ánh sáng thở (breathing glow) êm dịu khi đang nhận dữ liệu từ ESP32.
+5. **Phân loại Arrhythmia AI 5 Lớp & Radar Quét BLE 360°**:
+   - **Hình thái sóng P-QRS-T Vector Canvas**: Minh họa trực quan cấu trúc sóng đặc trưng cho từng loại nhịp (N: Xoang, S: Ngoại tâm thu nhĩ, V: Ngoại tâm thu thất, F: Nhịp kết hợp, Q: Chưa rõ).
+   - **Radar quét Bluetooth 360° (`BleRadarScannerCanvas`)**: Vòng quét phát sóng 360° mượt mà cùng vạch tín hiệu RSSI 4 mức.
 
 3. **Kiến trúc Dual AI Engine (Chuyển đổi linh hoạt Toggle)**:
    - **Nguồn 1 - ESP32 Hardware AI**: Tiếp nhận kết quả phân loại từ mô hình CNN 3-nhánh chạy trên vi điều khiển qua gói tin BLE.
