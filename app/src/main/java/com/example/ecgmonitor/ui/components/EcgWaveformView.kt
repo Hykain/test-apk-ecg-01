@@ -636,7 +636,7 @@ fun EcgChartCard(
                 displayTheme = selectedTheme
             )
 
-            // Dynamic Clinical Telemetry Ribbon (Enriches individual channel cards)
+            // Dynamic Clinical Telemetry Ribbon (2-Row Medical Layout for All 3 Cards)
             val minVal = if (samples.isNotEmpty()) samples.minOrNull() ?: 0f else 0f
             val maxVal = if (samples.isNotEmpty()) samples.maxOrNull() ?: 0f else 0f
             val vpp = maxVal - minVal
@@ -648,80 +648,127 @@ fun EcgChartCard(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // 1. Peak-to-Peak Amplitude Vpp
+                    // Row 1: Physiological Measurements & Realtime Sampling Telemetry
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Vpp:",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = if (samples.isNotEmpty()) String.format(Locale.US, "%.2f mV", vpp) else "--",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            color = waveformColor
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            // 1. Peak-to-Peak Amplitude Vpp
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Text(
+                                    text = "Vpp:",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = if (samples.isNotEmpty()) String.format(Locale.US, "%.1f mV", vpp) else "--",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = waveformColor
+                                )
+                            }
+
+                            // 2. Baseline DC Offset
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Text(
+                                    text = "DC:",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = if (samples.isNotEmpty()) String.format(Locale.US, "%+.1f mV", avgVal) else "--",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+
+                        // 3. Sampling Rate Badge (Guaranteed Single-Line Horizontal)
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest
+                        ) {
+                            Text(
+                                text = "125 Hz • 8ms/pt",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                            )
+                        }
                     }
 
-                    // 2. Baseline DC Offset
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.20f))
+
+                    // Row 2: DSP Filter Specs & Live Channel Status Indicator
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "DC:",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = if (samples.isNotEmpty()) String.format(Locale.US, "%+.2f mV", avgVal) else "--",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = waveformColor.copy(alpha = 0.12f)
+                        ) {
+                            Text(
+                                text = when (channelNumber) {
+                                    1 -> if (english) "RAW ADC • 0.05-100Hz" else "TÍN HIỆU THÔ • AD8232 (0.05 - 100Hz)"
+                                    2 -> if (english) "ESP32 DSP • IIR NOTCH 50Hz" else "LỌC ESP32 • NOTCH 50Hz + CHỐNG TRÔI"
+                                    else -> if (english) "KOTLIN DSP • REALTIME" else "LỌC ANDROID • DSP REALTIME ĐỐI CHỨNG"
+                                },
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                color = waveformColor,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
 
-                    // 3. DSP Filter Configuration Badge
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = waveformColor.copy(alpha = 0.12f)
-                    ) {
-                        Text(
-                            text = when(channelNumber) {
-                                1 -> if (english) "RAW ADC • 0.05-100Hz" else "THÔ ADC • 0.05-100Hz"
-                                2 -> if (english) "ESP32 DSP • NOTCH 50Hz" else "LỌC ESP32 • NOTCH 50Hz"
-                                else -> if (english) "KOTLIN DSP • REALTIME" else "LỌC ANDROID • ĐỐI CHỨNG"
-                            },
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            color = waveformColor,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .background(
+                                        if (samples.isNotEmpty()) EcgTheme.colors.rhythmNormal else MaterialTheme.colorScheme.outline,
+                                        CircleShape
+                                    )
+                            )
+                            Text(
+                                text = if (samples.isNotEmpty()) "ACTIVE" else "STANDBY",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                color = if (samples.isNotEmpty()) EcgTheme.colors.rhythmNormal else MaterialTheme.colorScheme.outline
+                            )
+                        }
                     }
-
-                    // 4. Sample Rate & Grid Standard
-                    Text(
-                        text = "125 Hz • 8ms/pt",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         }
