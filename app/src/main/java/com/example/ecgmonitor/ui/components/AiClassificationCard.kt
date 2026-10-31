@@ -12,12 +12,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,6 +63,7 @@ fun AiClassificationCard(
     english: Boolean = false
 ) {
     var modelDropdownExpanded by remember { mutableStateOf(false) }
+    var isModelPickerExpanded by rememberSaveable { mutableStateOf(true) }
 
     val classFullNames = if (english) {
         listOf("Normal Sinus Beat", "Supraventricular Ectopic", "Ventricular Ectopic (PVC)", "Fusion Beat", "Paced / Unclassifiable")
@@ -92,64 +96,106 @@ fun AiClassificationCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Header: Hardware Platform Switcher
+            // Header: Section Title + Active Engine Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(MaterialTheme.colorScheme.primary, CircleShape)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = if (english) "DUAL AI INFERENCE ENGINE" else "BỘ SUY LUẬN AI KÉP",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            letterSpacing = 0.8.sp
-                        )
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    )
+                    Spacer(Modifier.width(8.dp))
                     Text(
-                        text = if (aiSource == AiSource.ESP32)
-                            "ESP32-S3 Dual-Core Xtensa • 3-Branch CNN"
-                        else
-                            "On-Device TFLite INT8 • Pan-Tompkins DSP",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp
+                        text = if (english) "DUAL AI INFERENCE ENGINE" else "BỘ SUY LUẬN AI KÉP",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 0.8.sp
                     )
                 }
 
-                // Source Switcher Chips
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(
-                        selected = aiSource == AiSource.ESP32,
-                        onClick = { onSelectAiSource(AiSource.ESP32) },
-                        label = { Text("ESP32", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                        leadingIcon = {
-                            Icon(Icons.Default.Memory, contentDescription = null, modifier = Modifier.size(13.dp))
-                        },
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    FilterChip(
-                        selected = aiSource == AiSource.ON_DEVICE,
-                        onClick = { onSelectAiSource(AiSource.ON_DEVICE) },
-                        label = { Text("Android", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                        leadingIcon = {
-                            Icon(Icons.Default.PhoneAndroid, contentDescription = null, modifier = Modifier.size(13.dp))
-                        },
-                        shape = RoundedCornerShape(12.dp)
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = if (aiSource == AiSource.ESP32) "ESP32 CNN" else "ON-DEVICE TFLITE",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
             }
 
-            // On-Device Model Picker Dropdown (Animated visibility when Android AI is active)
-            AnimatedVisibility(visible = aiSource == AiSource.ON_DEVICE) {
+            // Dedicated Full-Width Platform Switcher Row (Never overflows or deforms)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // 1. ESP32 Engine Chip
+                FilterChip(
+                    selected = aiSource == AiSource.ESP32,
+                    onClick = {
+                        onSelectAiSource(AiSource.ESP32)
+                    },
+                    label = {
+                        Text(
+                            text = "ESP32-S3 CNN",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.Memory, contentDescription = null, modifier = Modifier.size(14.dp))
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f)
+                )
+
+                // 2. Android Engine Chip with 2-Way Expand/Collapse Toggle
+                FilterChip(
+                    selected = aiSource == AiSource.ON_DEVICE,
+                    onClick = {
+                        if (aiSource != AiSource.ON_DEVICE) {
+                            onSelectAiSource(AiSource.ON_DEVICE)
+                            isModelPickerExpanded = true
+                        } else {
+                            // If already on Android, clicking toggles expand/collapse!
+                            isModelPickerExpanded = !isModelPickerExpanded
+                        }
+                    },
+                    label = {
+                        Text(
+                            text = "Android TFLite",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.PhoneAndroid, contentDescription = null, modifier = Modifier.size(14.dp))
+                    },
+                    trailingIcon = if (aiSource == AiSource.ON_DEVICE) {
+                        {
+                            Icon(
+                                imageVector = if (isModelPickerExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = if (isModelPickerExpanded) "Collapse" else "Expand",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    } else null,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // On-Device Model Picker Dropdown (Expands and Collapses smoothly)
+            AnimatedVisibility(visible = aiSource == AiSource.ON_DEVICE && isModelPickerExpanded) {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
